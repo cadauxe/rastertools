@@ -10,12 +10,12 @@ Usage examples::
   rastertools zonalstats --help
 
 """
-import argparse
 import logging
 import logging.config
 import os
 import sys
 import json
+import click
 
 from eolab.rastertools import __version__
 from eolab.rastertools import RastertoolConfigurationException
@@ -25,7 +25,6 @@ from eolab.rastertools.product import RasterType
 
 
 _logger = logging.getLogger(__name__)
-
 
 def add_custom_rastertypes(rastertypes):
     """Add definition of new raster types. The json string shall have the following format:
@@ -126,122 +125,134 @@ def add_custom_rastertypes(rastertypes):
     """
     RasterType.add(rastertypes)
 
+@click.group(help="Collection of tools on raster data.")
 
-def run_tool(args):
-    """Main entry point allowing external calls
+@click.option(
+    '-t', '--rastertype',
+    'rastertype',
+    # Click automatically uses the last argument as the variable name, so "dest" is this last parameter
+    type=click.Path(exists=True),
+    help="JSON file defining additional raster types of input files")
 
-    sys.exit returns:
+@click.option(
+    '--max_workers',
+    "max_workers",
+    type=int,
+    help="Maximum number of workers for parallel processing. If not given, it will default to "
+            "the number of processors on the machine. When all processors are not allocated to "
+            "run rastertools, it is thus recommended to set this option.")
 
-    - 0: everything runs fine
-    - 1: processing errors occured
-    - 2: wrong execution configuration
+@click.option(
+    '--debug',
+    "keep_vrt",
+    is_flag=True,
+    help="Store to disk the intermediate VRT images that are generated when handling "
+            "the input files which can be complex raster product composed of several band files.")
 
-    Args:
-        args ([str]): command line parameter list
+@click.option(
+    '-v',
+    '--verbose',
+    is_flag=True,
+    help="set loglevel to INFO")
+
+@click.option(
+    '-vv',
+    '--very-verbose',
+    is_flag=True,
+    help="set loglevel to DEBUG")
+
+@click.version_option(version='rastertools {}'.format(__version__))  # Ensure __version__ is defined
+
+def rastertools(rastertype, max_workers, keep_vrt, verbose, very_verbose, command, inputs):
     """
-    parser = argparse.ArgumentParser(
-        description="Collection of tools on raster data")
-    # add an argument to define custom raster types
-    parser.add_argument(
-        '-t',
-        '--rastertype',
-        dest="rastertype",
-        help="JSON file defining additional raster types of input files")
-    parser.add_argument(
-        '--version',
-        action='version',
-        version=f'rastertools {__version__}')
-    parser.add_argument(
-        '--max_workers',
-        dest="max_workers",
-        type=int,
-        help="Maximum number of workers for parallel processing. If not given, it will default to "
-             "the number of processors on the machine. When all processors are not allocated to "
-             "run rastertools, it is thus recommended to set this option.")
-    parser.add_argument(
-        '--debug',
-        dest="keep_vrt",
-        action="store_true",
-        help="Store to disk the intermediate VRT images that are generated when handling "
-             "the input files which can be complex raster product composed of several band files.")
-    parser.add_argument(
-        '-v',
-        '--verbose',
-        dest="loglevel",
-        help="set loglevel to INFO",
-        action='store_const',
-        const=logging.INFO)
-    parser.add_argument(
-        '-vv',
-        '--very-verbose',
-        dest="loglevel",
-        help="set loglevel to DEBUG",
-        action='store_const',
-        const=logging.DEBUG)
+        CHANGE DOCSTRING
+        Main entry point allowing external calls.
 
-    rastertools_parsers = parser.add_subparsers(title='Commands')
-    # add sub parser for filtering
-    rastertools_parsers = filtering.create_argparser(rastertools_parsers)
-    # add sub parser for hillshade
-    rastertools_parsers = hillshade.create_argparser(rastertools_parsers)
-    # add sub parser for radioindice
-    rastertools_parsers = radioindice.create_argparser(rastertools_parsers)
-    # add sub parser for speed
-    rastertools_parsers = speed.create_argparser(rastertools_parsers)
-    # add sub parser for svf
-    rastertools_parsers = svf.create_argparser(rastertools_parsers)
-    # add sub parser for tiling
-    rastertools_parsers = tiling.create_argparser(rastertools_parsers)
-    # add sub parser for timeseries
-    rastertools_parsers = timeseries.create_argparser(rastertools_parsers)
-    # add sub parser for zonalstats
-    rastertools_parsers = zonalstats.create_argparser(rastertools_parsers)
+        Args:
+            rastertype: JSON file defining additional raster types.
+            max_workers: Maximum number of workers for parallel processing.
+            debug: Store intermediate VRT images.
+            verbose: Set loglevel to INFO.
+            very_verbose: Set loglevel to DEBUG.
+            command: The command to execute (e.g., filtering).
+            inputs: Input files for processing.
 
-    # analyse arguments
-    args = parser.parse_args(args)
-    argsdict = vars(args)
+        sys.exit returns:
 
-    # setup logging
+        - 0: everything runs fine
+        - 1: processing errors occured
+        - 2: wrong execution configuration
+    """
+    # Setup logging
+    if very_verbose:
+        loglevel = logging.DEBUG
+    elif verbose:
+        loglevel = logging.INFO
     logformat = "[%(asctime)s] %(levelname)s - %(name)s - %(message)s"
-    logging.basicConfig(level=args.loglevel, stream=sys.stdout,
-                        format=logformat, datefmt="%Y-%m-%d %H:%M:%S")
+    logging.basicConfig(level=loglevel, stream=sys.stdout, format=logformat, datefmt="%Y-%m-%d %H:%M:%S")
 
     if "RASTERTOOLS_NOTQDM" not in os.environ:
-        os.environ["RASTERTOOLS_NOTQDM"] = "True" if logging.root.level > logging.INFO else "False"
+        os.environ["RASTERTOOLS_NOTQDM"] = "True" if loglevel > logging.INFO else "False"
 
-    if "RASTERTOOLS_MAXWORKERS" not in os.environ and args.max_workers is not None:
-        os.environ["RASTERTOOLS_MAXWORKERS"] = f"{args.max_workers}"
+    if "RASTERTOOLS_MAXWORKERS" not in os.environ and max_workers is not None:
+        os.environ["RASTERTOOLS_MAXWORKERS"] = f"{max_workers}"
 
-    # handle rastertype option
-    if args.rastertype:
-        with open(args.rastertype) as json_content:
+    # Handle rastertype option
+    if rastertype:
+        with open(rastertype) as json_content:
             RasterType.add(json.load(json_content))
 
-    # call function corresponding to the subcommand
-    if "func" in argsdict:
-        try:
-            # initialize the rastertool to execute
-            tool = args.func(args)
+    # Map command string to function
+    command_mapping = {
+        'filtering': filtering.command,
+        'hillshade': hillshade.command,
+        'radioindice': radioindice.command,
+        'speed': speed.command,
+        'svf': svf.command,
+        'tiling': tiling.command,
+        'timeseries': timeseries.command,
+        'zonalstats': zonalstats.command,
+    }
 
+    tool = command_mapping.get(command)
+
+    # Call the corresponding function for the specified command
+
+    if tool:
+        try:
             # handle the input file of type "lst"
-            inputs = _extract_files_from_list(args.inputs)
+            inputs_extracted = _extract_files_from_list(inputs)
 
             # setup debug mode in which intermediate VRT files are stored to disk or not
-            tool.with_vrt_stored(args.keep_vrt)
+            tool.with_vrt_stored(keep_vrt)
 
             # launch process
-            tool.process_files(inputs)
+            tool.process_files(inputs_extracted)
+
             _logger.info("Done!")
+
         except RastertoolConfigurationException as rce:
             _logger.exception(rce)
             sys.exit(2)
+
         except Exception as err:
             _logger.exception(err)
             sys.exit(1)
     else:
-        parser.print_help()
+        ctx.show_help()
 
     sys.exit(0)
+
+
+# Register subcommands from other modules
+rastertools.add_command(filtering.filter, "filter")
+rastertools.add_command(hillshade.command, "hillshade")
+rastertools.add_command(radioindice.command, "radioindice")
+rastertools.add_command(speed.command, "speed")
+rastertools.add_command(svf.command, "svf")
+rastertools.add_command(tiling.command, "tiling")
+rastertools.add_command(timeseries.command, "timeseries")
+rastertools.add_command(zonalstats.command, "zonalstats")
 
 
 def _extract_files_from_list(cmd_inputs):
@@ -273,7 +284,7 @@ def _extract_files_from_list(cmd_inputs):
 def run():
     """Entry point for console_scripts
     """
-    run_tool(sys.argv[1:])
+    rastertools()
 
 
 if __name__ == "__main__":
