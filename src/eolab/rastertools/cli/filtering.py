@@ -8,10 +8,12 @@ from eolab.rastertools import Filtering
 from eolab.rastertools import RastertoolConfigurationException
 #from eolab.rastertools.main import rastertools #Import the click group named rastertools
 import click
+import logging
 import sys
 import os
 
-#_logger = main.get_logger()
+#TO DO
+_logger = logging.getLogger("main")
 
 def _extract_files_from_list(cmd_inputs):
     """Extract the list of files from a file of type ".lst" which
@@ -82,27 +84,27 @@ def apply_filter(ctx, tool : Filtering, inputs : str):
         # launch process
         tool.process_files(inputs_extracted)
 
-        #_logger.info("Done!")
+        _logger.info("Done!")
 
     except RastertoolConfigurationException as rce:
-        #_logger.exception(rce)
+        _logger.exception(rce)
         sys.exit(2)
 
     except Exception as err:
-        #_logger.exception(err)
+        _logger.exception(err)
         sys.exit(1)
 
     sys.exit(0)
 
 inpt_arg = click.argument('inputs', type=str, required = 1)
 
-ker_opt = click.option('--kernel-size', type=int, help="Kernel size of the filter function, e.g. 3 means a square" 
+ker_opt = click.option('--kernel_size', type=int, help="Kernel size of the filter function, e.g. 3 means a square" 
                    "of 3x3 pixels on which the filter function is computed"
                    "(default: 8)")
 
 out_opt = click.option('-o', '--output', default = os.getcwd(), help="Output directory to store results (by default current directory)")
 
-win_opt = click.option('-ws', '--window-size', type=int, default = 1024, help="Size of tiles to distribute processing, default: 1024")
+win_opt = click.option('-ws', '--window_size', type=int, default = 1024, help="Size of tiles to distribute processing, default: 1024")
 
 pad_opt = click.option('-p','--pad',default="edge", type=click.Choice(['none','edge','maximum','mean','median','minimum','reflect','symmetric','wrap']),
               help="Pad to use around the image, default : edge" 
@@ -210,9 +212,9 @@ def mean(ctx, inputs : str, output : str, window_size : int, pad : str, kernel_s
     Execute the filtering tool with the specified filter and parameters. name=rasterfilter.name, help=rasterfilter.help
 
     do not remove :
-    inputs : Input file to process (e.g. Sentinel2 L2A MAJA from THEIA).
+    INPUTS : Input file to process (e.g. Sentinel2 L2A MAJA from THEIA).
              You can provide a single file with extension \".lst\" (e.g. \"filtering.lst\")
-             that lists the input files to process (one input file per line in .lst)"
+             that lists the input files to process (one input file per line in .lst)
     """
     # Store input files so that rastertools has access to it
     ctx.obj["inputs"] = inputs

@@ -23,10 +23,6 @@ from eolab.rastertools.cli import filtering, svf, hillshade, timeseries
 from eolab.rastertools.product import RasterType
 
 
-_logger = logging.getLogger(__name__)
-def get_logger():
-    return _logger
-
 def add_custom_rastertypes(rastertypes):
     """Add definition of new raster types. The json string shall have the following format:
 
@@ -194,6 +190,9 @@ def rastertools(ctx, rastertype : str, max_workers : int, keep_vrt : bool, verbo
         loglevel = logging.DEBUG
     elif verbose:
         loglevel = logging.INFO
+    else:
+        loglevel = logging.WARNING
+
     logformat = "[%(asctime)s] %(levelname)s - %(name)s - %(message)s"
     logging.basicConfig(level=loglevel, stream=sys.stdout, format=logformat, datefmt="%Y-%m-%d %H:%M:%S")
 
