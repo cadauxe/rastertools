@@ -16,15 +16,16 @@ import os
 import sys
 import json
 import click
-
+from eolab.rastertools.cli.filtering import filter
 from eolab.rastertools import __version__
-from eolab.rastertools import RastertoolConfigurationException
 from eolab.rastertools.cli import radioindice, zonalstats, tiling, speed
 from eolab.rastertools.cli import filtering, svf, hillshade, timeseries
 from eolab.rastertools.product import RasterType
 
 
 _logger = logging.getLogger(__name__)
+def get_logger():
+    return _logger
 
 def add_custom_rastertypes(rastertypes):
     """Add definition of new raster types. The json string shall have the following format:
@@ -125,7 +126,7 @@ def add_custom_rastertypes(rastertypes):
     """
     RasterType.add(rastertypes)
 
-@click.group(help="Collection of tools on raster data.")
+@click.group()
 
 @click.option(
     '-t', '--rastertype',
@@ -163,15 +164,17 @@ def add_custom_rastertypes(rastertypes):
 
 @click.version_option(version='rastertools {}'.format(__version__))  # Ensure __version__ is defined
 
-def rastertools(rastertype, max_workers, keep_vrt, verbose, very_verbose, command, inputs):
+@click.pass_context
+def rastertools(ctx, rastertype : str, max_workers : int, keep_vrt : bool, verbose : bool, very_verbose : bool):
     """
+        Collection of tools on raster data.
         CHANGE DOCSTRING
         Main entry point allowing external calls.
 
         Args:
             rastertype: JSON file defining additional raster types.
             max_workers: Maximum number of workers for parallel processing.
-            debug: Store intermediate VRT images.
+            keep_vrt: Store intermediate VRT images.
             verbose: Set loglevel to INFO.
             very_verbose: Set loglevel to DEBUG.
             command: The command to execute (e.g., filtering).
@@ -183,6 +186,9 @@ def rastertools(rastertype, max_workers, keep_vrt, verbose, very_verbose, comman
         - 1: processing errors occured
         - 2: wrong execution configuration
     """
+    ctx.ensure_object(dict)
+    ctx.obj['keep_vrt'] = keep_vrt
+
     # Setup logging
     if very_verbose:
         loglevel = logging.DEBUG
@@ -202,84 +208,23 @@ def rastertools(rastertype, max_workers, keep_vrt, verbose, very_verbose, comman
         with open(rastertype) as json_content:
             RasterType.add(json.load(json_content))
 
-    # Map command string to function
-    command_mapping = {
-        'filtering': filtering.command,
-        'hillshade': hillshade.command,
-        'radioindice': radioindice.command,
-        'speed': speed.command,
-        'svf': svf.command,
-        'tiling': tiling.command,
-        'timeseries': timeseries.command,
-        'zonalstats': zonalstats.command,
-    }
-
-    tool = command_mapping.get(command)
-
-    # Call the corresponding function for the specified command
-
-    if tool:
-        try:
-            # handle the input file of type "lst"
-            inputs_extracted = _extract_files_from_list(inputs)
-
-            # setup debug mode in which intermediate VRT files are stored to disk or not
-            tool.with_vrt_stored(keep_vrt)
-
-            # launch process
-            tool.process_files(inputs_extracted)
-
-            _logger.info("Done!")
-
-        except RastertoolConfigurationException as rce:
-            _logger.exception(rce)
-            sys.exit(2)
-
-        except Exception as err:
-            _logger.exception(err)
-            sys.exit(1)
-    else:
-        ctx.show_help()
-
-    sys.exit(0)
-
 
 # Register subcommands from other modules
-rastertools.add_command(filtering.filter, "filter")
-rastertools.add_command(hillshade.command, "hillshade")
-rastertools.add_command(radioindice.command, "radioindice")
-rastertools.add_command(speed.command, "speed")
-rastertools.add_command(svf.command, "svf")
-rastertools.add_command(tiling.command, "tiling")
-rastertools.add_command(timeseries.command, "timeseries")
-rastertools.add_command(zonalstats.command, "zonalstats")
+rastertools.add_command(filter)
+#rastertools.add_command(hillshade)
+#rastertools.add_command(radioindice)
+#rastertools.add_command(speed)
+#rastertools.add_command(svf)
+#rastertools.add_command(tiling)
+#rastertools.add_command(timeseries)
+#rastertools.add_command(zonalstats)
 
-
-def _extract_files_from_list(cmd_inputs):
-    """Extract the list of files from a file of type ".lst" which
-    contains one line per file
-
-    Args:
-        cmd_inputs (str):
-            Value of the inputs arguments of the command line. Either
-            a file with a suffix lst from which the list of files shall
-            be extracted or directly the list of files (in this case, the
-            list is returned without any change).
-
-    Returns:
-        The list of input files read from the command line
-    """
-
-    # handle the input file of type "lst"
-    if len(cmd_inputs) == 1 and cmd_inputs[0][-4:].lower() == ".lst":
-        # parse the listing
-        with open(cmd_inputs[0]) as f:
-            inputs = f.read().splitlines()
-    else:
-        inputs = cmd_inputs
-
-    return inputs
-
+@rastertools.result_callback()
+@click.pass_context
+def handle_result(ctx):
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+        ctx.exit()
 
 def run():
     """Entry point for console_scripts
