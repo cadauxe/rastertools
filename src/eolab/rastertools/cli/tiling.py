@@ -26,7 +26,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 @click.option('-o','--output', default = os.getcwd(), help="Output directory to store results (by default current directory)")
 
-@click.option('-n','--name','output_name', help="Basename for the output raster tiles, default:"
+@click.option('-n','--name','output_name', default="{}_tile{}", help="Basename for the output raster tiles, default:"
                         "\"{}_tile{}\". The basename must be defined as a formatted string where tile index is at position 1"
                         " and original filename is at position 0. For instance, tile{1}.tif will generate the filename"
                         "tile75.tif for the tile id = 75")
@@ -54,6 +54,8 @@ def tiling(ctx, inputs : list, grid_file : str, id_column : str, id : list, outp
     Returns:
         :obj:`eolab.rastertools.Tiling`: The configured rastertool to run
     """
+    if id == () :
+        id = None
 
     # create the rastertool object
     tool = Tiling(grid_file)
