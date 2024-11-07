@@ -138,7 +138,7 @@ def test_rastertools_command_line_info():
         TestCase("--version"),
         TestCase(""),
         TestCase("filter --help"),
-        TestCase("filter -h")
+        TestCase("fi -h")
     ]
     # tests = [
     #     TestCase("--help"),
@@ -650,16 +650,16 @@ def test_filtering_command_line_default():
     # list of commands to test
     argslist = [
         # default case: median
-        "-v --max_workers 1 filter median -a --kernel_size 8 -o tests/tests_out"
+        "-v --max_workers 1 fi median -a --kernel_size 8 -o tests/tests_out"
         " tests/tests_data/RGB_TIF_20170105_013442_test.tif",
         # default case: local sum
-        "-v filter sum -b 1 2 --kernel_size 8 -o tests/tests_out"
+        "-v fi sum -b 1 2 --kernel_size 8 -o tests/tests_out"
         " tests/tests_data/RGB_TIF_20170105_013442_test.tif",
         # default case: local mean
-        "-v filter mean -b 1 --kernel_size 8 -o tests/tests_out"
+        "-v fi mean -b 1 --kernel_size 8 -o tests/tests_out"
         " tests/tests_data/RGB_TIF_20170105_013442_test.tif",
         # default case: adaptive gaussian
-        "-v filter adaptive_gaussian -b 1 --kernel_size 32 --sigma 1 -o tests/tests_out"
+        "-v fi adaptive_gaussian -b 1 --kernel_size 32 --sigma 1 -o tests/tests_out"
         " tests/tests_data/RGB_TIF_20170105_013442_test.tif",
     ]
     input_filenames = ["RGB_TIF_20170105_013442_test-{}.tif"]

@@ -16,7 +16,7 @@ import os
 import sys
 import json
 import click
-from eolab.rastertools.cli.filtering import filter
+from eolab.rastertools.cli.filtering_dyn import filter
 from eolab.rastertools import __version__
 from eolab.rastertools.cli import radioindice, zonalstats, tiling, speed
 from eolab.rastertools.cli import filtering, svf, hillshade, timeseries
@@ -159,30 +159,24 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.pass_context
 def rastertools(ctx, rastertype : str, max_workers : int, keep_vrt : bool, verbose : bool, very_verbose : bool):
     """
-        Collection of tools on raster data.
-        CHANGE DOCSTRING
-        Main entry point allowing external calls.
+    Main entry point for the `rastertools` Command Line Interface.
 
-        Args:
-            rastertype: JSON file defining additional raster types.
-            max_workers: Maximum number of workers for parallel processing.
-            keep_vrt: Store intermediate VRT images.
-            verbose: Set loglevel to INFO.
-            very_verbose: Set loglevel to DEBUG.
-            command: The command to execute (e.g., filtering).
-            inputs: Input files for processing.
+    The `rastertools` CLI provides tools for raster processing
+    and analysis and allows configurable data handling, parallel processing,
+    and debugging support.
 
-        sys.exit returns:
+    Logging:
 
-        - 0: everything runs fine
-        - 1: processing errors occured
-        - 2: wrong execution configuration
+        - INFO level (`-v`) gives detailed step information.
+
+        - DEBUG level (`-vv`) offers full debug-level tracing.
+
+    Environment Variables:
+
+        - `RASTERTOOLS_NOTQDM`: If the log level is above INFO, sets this to disable progress bars.
+
+        - `RASTERTOOLS_MAXWORKERS`: If `max_workers` is set, it defines the max workers for rastertools.
     """
-    print(rastertype)
-    print("/"*50)
-    print("/"*50)
-    print("/"*50)
-
     ctx.ensure_object(dict)
     ctx.obj['keep_vrt'] = keep_vrt
 
@@ -210,14 +204,21 @@ def rastertools(ctx, rastertype : str, max_workers : int, keep_vrt : bool, verbo
 
 
 # Register subcommands from other modules
-rastertools.add_command(filter)
-#rastertools.add_command(hillshade)
-#rastertools.add_command(radioindice)
-#rastertools.add_command(speed)
-#rastertools.add_command(svf)
-#rastertools.add_command(tiling)
-#rastertools.add_command(timeseries)
-#rastertools.add_command(zonalstats)
+rastertools.add_command(filter, name = "fi")
+rastertools.add_command(filter, name = "filter")
+#rastertools.add_command(hillshade, name = "hs")
+#rastertools.add_command(hillshade, name = "hillshade")
+#rastertools.add_command(radioindice, name = "ri")
+#rastertools.add_command(radioindice, name = "radioindice")
+#rastertools.add_command(speed, name = "sp")
+#rastertools.add_command(speed, name = "speed")
+#rastertools.add_command(svf, name = "svf")
+#rastertools.add_command(tiling, name = "ti")
+#rastertools.add_command(tiling, name = "tiling")
+#rastertools.add_command(timeseries, name = "ts")
+#rastertools.add_command(timeseries, name = "timeseries")
+#rastertools.add_command(zonalstats, name = "zs")
+#rastertools.add_command(zonalstats, name = "zonalstats")
 
 @rastertools.result_callback()
 @click.pass_context

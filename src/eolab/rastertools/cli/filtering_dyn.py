@@ -3,33 +3,45 @@
 """
 CLI definition for the filtering tool
 """
-from pkg_resources import require
-
 from eolab.rastertools import Filtering
 #from eolab.rastertools.main import get_logger
 from eolab.rastertools import RastertoolConfigurationException
 #from eolab.rastertools.main import rastertools #Import the click group named rastertools
+import logging
 import sys
 import click
 import os
 
-#_logger = get_logger()
+#TO DO
+_logger = logging.getLogger("main")
+
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 def _extract_files_from_list(cmd_inputs):
-    """Extract the list of files from a file of type ".lst" which
-    contains one line per file
+    """
+    Extracts a list of file paths from a command line input.
+
+    If the input is a single file with a `.lst` extension, it reads the file line-by-line and treats each
+    line as an individual file path, returning the list of paths. If the input is already a
+    list of file paths, it is returned as-is.
 
     Args:
-        cmd_inputs (str):
-            Value of the inputs arguments of the command line. Either
-            a file with a suffix lst from which the list of files shall
-            be extracted or directly the list of files (in this case, the
-            list is returned without any change).
+        cmd_inputs (list of str):
+            Command line inputs for file paths. If it contains a single `.lst` file, this file
+            is read to obtain the list of files. Otherwise, it is assumed to be a direct list of files.
 
     Returns:
-        The list of input files read from the command line
-    """
+        list of str: A list of file paths, either extracted from the `.lst` file or passed directly.
 
+    Example:
+        _extract_files_from_list(["files.lst"])
+
+        _extract_files_from_list(["file1.tif", "file2.tif"])
+
+    Notes:
+        The `.lst` file is expected to have one file path per line. Blank lines in the `.lst`
+        file will be ignored.
+    """
     # handle the input file of type "lst"
     if len(cmd_inputs) == 1 and cmd_inputs[0][-4:].lower() == ".lst":
         # parse the listing
@@ -42,16 +54,24 @@ def _extract_files_from_list(cmd_inputs):
 
 def create_filtering(output : str, window_size : int, pad : str, argsdict : dict, filter : str, bands : list, kernel_size : int, all_bands : bool) -> Filtering:
     """
-    CHANGE DOCSTRING
-    Create and configure a new rastertool "Filtering" according to argparse args
+    This function initializes a `Filtering` tool instance and configures it with specified settings.
+
+    It selects the filter type, kernel size, output settings, and processing bands. If `all_bands` is set
+    to True, the filter will apply to all bands in the raster; otherwise, it applies only to specified bands.
 
     Args:
-        args: args extracted from command line
+        output (str): The path for the filtered output file.
+        window_size (int): Size of the processing window used by the filter.
+        pad (str): Padding method used for windowing (e.g., 'reflect', 'constant', etc.).
+        argsdict (dict): Dictionary of additional filter configuration arguments.
+        filter (str): The filter type to apply (must be a valid name in `Filtering` filters).
+        bands (list): List of bands to process. If empty and `all_bands` is False, defaults to [1].
+        kernel_size (int): Size of the kernel used by the filter.
+        all_bands (bool): Whether to apply the filter to all bands (True) or specific bands (False).
 
     Returns:
-        :obj:`eolab.rastertools.Filtering`: The configured rastertool to run
+        :obj:`eolab.rastertools.Filtering`: A configured `Filtering` instance ready for execution.
     """
-
     # get the bands to process
     if all_bands:
         bands = None
@@ -72,8 +92,24 @@ def create_filtering(output : str, window_size : int, pad : str, argsdict : dict
 
 def apply_filter(ctx, tool : Filtering, inputs : str):
     """
-    CHANGE DOCSTRING
-    Apply the chosen filter
+    Apply the chosen filter to a set of input files.
+
+    This function extracts input files, configures the filter tool, and processes the files
+    through the specified filter. It also handles debug settings and intermediate file storage
+    (VRT files). In case of any errors, the function logs the exception and terminates the process
+    with an appropriate exit code.
+
+    Args:
+        ctx (click.Context): The context object containing configuration options like whether
+                             to store intermediate VRT files.
+        tool (Filtering): The `Filtering` tool instance that has been configured with the filter
+                          and processing parameters.
+        inputs (str): A path to a list of input files, either as a single `.lst` file or a direct
+                      list of file paths. The list will be processed by the filter.
+
+    Raises:
+        RastertoolConfigurationException: If there is a configuration error with the tool.
+        Exception: Any other errors that occur during processing.
     """
     try:
         # handle the input file of type "lst"
@@ -98,7 +134,7 @@ def apply_filter(ctx, tool : Filtering, inputs : str):
     sys.exit(0)
 
 
-inpt_arg = click.argument('inputs', type=str, required = 1)
+inpt_arg = click.argument('inputs', type=str, nargs = -1, required = 1)
 
 ker_opt = click.option('--kernel_size', type=int, help="Kernel size of the filter function, e.g. 3 means a square" 
                    "of 3x3 pixels on which the filter function is computed"
@@ -117,18 +153,18 @@ band_opt = click.option('-b','--bands', type=list, help="List of bands to proces
 
 all_opt = click.option('-a', '--all','all_bands', type=bool, is_flag=True, help="Process all bands")
 
-@click.group()
+@click.group(context_settings=CONTEXT_SETTINGS)
 @click.pass_context
 def filter(ctx):
-    '''
+    """
     Apply a filter to a set of images.
-    '''
+    """
     ctx.ensure_object(dict)
 
 
 def create_filter(filter_name : str):
 
-    @filter.command(filter_name)
+    @filter.command(filter_name, context_settings=CONTEXT_SETTINGS)
     @inpt_arg
     @ker_opt
     @out_opt
@@ -138,15 +174,18 @@ def create_filter(filter_name : str):
     @all_opt
     @click.pass_context
     def filter_filtername(ctx, inputs : str, output : str, window_size : int, pad : str, kernel_size : int, bands : list, all_bands : bool):
-        '''
-        COMPLETE THE SECTION should display for : rastertools filter median --help
-        Execute the filtering tool with the specified filter and parameters. name=rasterfilter.name, help=rasterfilter.help
+        """
+        Execute the requested filter on the input files with the specified parameters.
+        The `inputs` argument can either be a single file or a `.lst` file containing a list of input files.
 
-        do not remove :
-        INPUTS : Input file to process (e.g. Sentinel2 L2A MAJA from THEIA).
-             You can provide a single file with extension \".lst\" (e.g. \"filtering.lst\")
-             that lists the input files to process (one input file per line in .lst)
-        '''
+        Arguments:
+
+        inputs TEXT
+
+        Input file to process (e.g. Sentinel2 L2A MAJA from THEIA).
+        You can provide a single file with extension \".lst\" (e.g. \"filtering.lst\") that lists
+        the input files to process (one input file per line in .lst).
+        """
         ctx.obj["inputs"] = inputs
 
         # Configure the filter tool instance
