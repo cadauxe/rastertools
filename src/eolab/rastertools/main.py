@@ -17,9 +17,11 @@ import sys
 import json
 import click
 from eolab.rastertools.cli.filtering_dyn import filter
+from eolab.rastertools.cli.hillshade import hillshade
+from eolab.rastertools.cli.speed import speed
+from eolab.rastertools.cli.svf import svf
+from eolab.rastertools.cli.tiling import tiling #timeseries, radioindice, zonalstats
 from eolab.rastertools import __version__
-from eolab.rastertools.cli import radioindice, zonalstats, tiling, speed
-from eolab.rastertools.cli import filtering, svf, hillshade, timeseries
 from eolab.rastertools.product import RasterType
 
 
@@ -206,15 +208,15 @@ def rastertools(ctx, rastertype : str, max_workers : int, keep_vrt : bool, verbo
 # Register subcommands from other modules
 rastertools.add_command(filter, name = "fi")
 rastertools.add_command(filter, name = "filter")
-#rastertools.add_command(hillshade, name = "hs")
-#rastertools.add_command(hillshade, name = "hillshade")
+rastertools.add_command(hillshade, name = "hs")
+rastertools.add_command(hillshade, name = "hillshade")
 #rastertools.add_command(radioindice, name = "ri")
 #rastertools.add_command(radioindice, name = "radioindice")
-#rastertools.add_command(speed, name = "sp")
-#rastertools.add_command(speed, name = "speed")
-#rastertools.add_command(svf, name = "svf")
-#rastertools.add_command(tiling, name = "ti")
-#rastertools.add_command(tiling, name = "tiling")
+rastertools.add_command(speed, name = "sp")
+rastertools.add_command(speed, name = "speed")
+rastertools.add_command(svf, name = "svf")
+rastertools.add_command(tiling, name = "ti")
+rastertools.add_command(tiling, name = "tiling")
 #rastertools.add_command(timeseries, name = "ts")
 #rastertools.add_command(timeseries, name = "timeseries")
 #rastertools.add_command(zonalstats, name = "zs")

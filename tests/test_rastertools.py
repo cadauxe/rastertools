@@ -718,8 +718,7 @@ def test_svf_command_line_default():
     # list of commands to test
     argslist = [
         # default case: svf at the point height
-        "-v svf --radius 50 --directions 16 --resolution 0.5 -o tests/tests_out"
-        " tests/tests_data/toulouse-mnh.tif",
+        "ftilin",
         # default case: svf on ground
         "-v svf --radius 50 --directions 16 --resolution 0.5 --altitude 0 -o tests/tests_out"
         " tests/tests_data/toulouse-mnh.tif",
