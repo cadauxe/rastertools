@@ -63,7 +63,9 @@ class RasterProduct:
         if file is None:
             raise ValueError("'file' cannot be None")
 
+        print(file)
         self._file = utils.to_path(file)
+        print(self._file)
         self._vrt_outputdir = vrt_outputdir
         self._in_memory_vrts = []
 

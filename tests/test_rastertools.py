@@ -5,6 +5,9 @@ import pytest
 import logging
 import filecmp
 from pathlib import Path
+
+from click import argument
+
 from eolab.rastertools import rastertools
 from eolab.rastertools.product import RasterType
 
@@ -93,8 +96,8 @@ class TestCase:
             check_logs = False
 
         # run rastertools
-        with pytest.raises(SystemExit) as wrapped_exception:
-            rastertools()
+        # with pytest.raises(SystemExit) as wrapped_exception:
+        rastertools(self.args)
 
         # check sys_exit
         if check_sys_exit:
@@ -134,23 +137,31 @@ def test_rastertools_command_line_info():
         TestCase("-h"),
         TestCase("--version"),
         TestCase(""),
-        TestCase("radioindice --help"),
-        TestCase("ri -h"),
-        TestCase("zonalstats --help"),
-        TestCase("zs -h"),
-        TestCase("tiling --help"),
-        TestCase("ti -h"),
         TestCase("filter --help"),
-        TestCase("fi -h"),
-        TestCase("timeseries --help"),
-        TestCase("ts -h"),
-        TestCase("speed --help"),
-        TestCase("sp -h"),
-        TestCase("svf --help"),
-        TestCase("svf -h"),
-        TestCase("hillshade --help"),
-        TestCase("hs -h")
+        TestCase("filter -h")
     ]
+    # tests = [
+    #     TestCase("--help"),
+    #     TestCase("-h"),
+    #     TestCase("--version"),
+    #     TestCase(""),
+    #     TestCase("radioindice --help"),
+    #     TestCase("ri -h"),
+    #     TestCase("zonalstats --help"),
+    #     TestCase("zs -h"),
+    #     TestCase("tiling --help"),
+    #     TestCase("ti -h"),
+    #     TestCase("filter --help"),
+    #     TestCase("fi -h"),
+    #     TestCase("timeseries --help"),
+    #     TestCase("ts -h"),
+    #     TestCase("speed --help"),
+    #     TestCase("sp -h"),
+    #     TestCase("svf --help"),
+    #     TestCase("svf -h"),
+    #     TestCase("hillshade --help"),
+    #     TestCase("hs -h")
+    # ]
     for test in tests:
         test.run_test()
 

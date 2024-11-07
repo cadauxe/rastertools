@@ -14,6 +14,7 @@ import os
 
 #TO DO
 _logger = logging.getLogger("main")
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 def _extract_files_from_list(cmd_inputs):
     """Extract the list of files from a file of type ".lst" which
@@ -115,7 +116,7 @@ band_opt = click.option('-b','--bands', type=list, help="List of bands to proces
 
 all_opt = click.option('-a', '--all','all_bands', type=bool, is_flag=True, help="Process all bands")
 
-@click.group()
+@click.group(context_settings=CONTEXT_SETTINGS)
 @click.pass_context
 def filter(ctx):
     '''
@@ -125,7 +126,7 @@ def filter(ctx):
 
 
 #Median filter
-@filter.command("median")
+@filter.command("median",context_settings=CONTEXT_SETTINGS)
 @inpt_arg
 @ker_opt
 @out_opt
@@ -161,7 +162,7 @@ def median(ctx, inputs : str, output : str, window_size : int, pad : str, kernel
     apply_filter(ctx, tool, inputs)
 
 #Sum filter
-@filter.command("sum")
+@filter.command("sum",context_settings=CONTEXT_SETTINGS)
 @inpt_arg
 @ker_opt
 @out_opt
@@ -197,7 +198,7 @@ def sum(ctx, inputs : str, output : str, window_size : int, pad : str, kernel_si
     apply_filter(ctx, tool, inputs)
 
 #Mean filter
-@filter.command("mean")
+@filter.command("mean",context_settings=CONTEXT_SETTINGS)
 @inpt_arg
 @ker_opt
 @out_opt
@@ -233,7 +234,7 @@ def mean(ctx, inputs : str, output : str, window_size : int, pad : str, kernel_s
     apply_filter(ctx, tool, inputs)
 
 #Adaptive gaussian filter
-@filter.command("adaptive_gaussian")
+@filter.command("adaptive_gaussian",context_settings=CONTEXT_SETTINGS)
 @inpt_arg
 @ker_opt
 @out_opt

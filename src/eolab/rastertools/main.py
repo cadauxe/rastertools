@@ -122,15 +122,16 @@ def add_custom_rastertypes(rastertypes):
     """
     RasterType.add(rastertypes)
 
-@click.group()
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
+@click.group(context_settings=CONTEXT_SETTINGS)
 @click.option(
     '-t', '--rastertype',
     'rastertype',
+    default = None,
     # Click automatically uses the last argument as the variable name, so "dest" is this last parameter
     type=click.Path(exists=True),
     help="JSON file defining additional raster types of input files")
-
 @click.option(
     '--max_workers',
     "max_workers",
@@ -138,28 +139,23 @@ def add_custom_rastertypes(rastertypes):
     help="Maximum number of workers for parallel processing. If not given, it will default to "
             "the number of processors on the machine. When all processors are not allocated to "
             "run rastertools, it is thus recommended to set this option.")
-
 @click.option(
     '--debug',
     "keep_vrt",
     is_flag=True,
     help="Store to disk the intermediate VRT images that are generated when handling "
             "the input files which can be complex raster product composed of several band files.")
-
 @click.option(
     '-v',
     '--verbose',
     is_flag=True,
     help="set loglevel to INFO")
-
 @click.option(
     '-vv',
     '--very-verbose',
     is_flag=True,
     help="set loglevel to DEBUG")
-
 @click.version_option(version='rastertools {}'.format(__version__))  # Ensure __version__ is defined
-
 @click.pass_context
 def rastertools(ctx, rastertype : str, max_workers : int, keep_vrt : bool, verbose : bool, very_verbose : bool):
     """
@@ -182,6 +178,11 @@ def rastertools(ctx, rastertype : str, max_workers : int, keep_vrt : bool, verbo
         - 1: processing errors occured
         - 2: wrong execution configuration
     """
+    print(rastertype)
+    print("/"*50)
+    print("/"*50)
+    print("/"*50)
+
     ctx.ensure_object(dict)
     ctx.obj['keep_vrt'] = keep_vrt
 
@@ -225,10 +226,10 @@ def handle_result(ctx):
         click.echo(ctx.get_help())
         ctx.exit()
 
-def run():
+def run(*args, **kwargs):
     """Entry point for console_scripts
     """
-    rastertools()
+    rastertools(*args, **kwargs)
 
 
 if __name__ == "__main__":
