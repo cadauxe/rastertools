@@ -23,6 +23,15 @@ def parse_normalized_difference(ctx, param, value):
     return None
 
 
+def indices_opt(function):
+    list_indices = ['--ndvi', '--tndvi', '--rvi', '--pvi', '--savi', '--tsavi', '--msavi', '--msavi2', '--ipvi',
+                    '--evi', '--ndwi', '--ndwi2', '--mndwi', '--ndpi', '--ndti', '--ndbi', '--ri', '--bi', '--bi2']
+
+    for idc in list_indices:
+        function = click.option(idc, is_flag=True, help=f"Compute {id} indice")(function)
+    return function
+
+
 #Radioindice command
 @click.command("radioindice",context_settings=CONTEXT_SETTINGS)
 @click.argument('inputs', type=str, nargs = -1, required = 1)
@@ -35,11 +44,13 @@ def parse_normalized_difference(ctx, param, value):
 
 @click.option('-ws', '--window_size', type=int, default = 1024, help="Size of tiles to distribute processing, default: 1024")
 
-list_indices = ['--ndvi', '--tndvi', '--rvi', '--pvi', '--savi', '--tsavi', '--msavi', '--msavi2', '--ipvi',
-'--evi', '--ndwi', '--ndwi2', '--mndwi', '--ndpi', '--ndti', '--ndbi', '--ri', '--bi', '--bi2']
+@click.option('-i', '--indices', type=click.Choice(['ndvi', 'tndvi', 'rvi', 'pvi', 'savi', 'tsavi', 'msavi', 'msavi2', 'ipvi',
+                    'evi', 'ndwi', 'ndwi2', 'mndwi', 'ndpi', 'ndti', 'ndbi', 'ri', 'bi', 'bi2']), multiple = True,
+                    help=" List of indices to computePossible indices are: bi, bi2, evi, ipvi, mndwi, msavi, msavi2, ndbi, ndpi,"
+                        " ndti, ndvi, ndwi, ndwi2, pvi, ri, rvi, savi, tndvi, tsavi")
 
-for id in list_indices:
-    @click.option(id, is_flag = True, help=f"Compute {id} indice")
+
+@indices_opt
 
 @click.option('-nd', '--normalized_difference','nd',type=str,
     multiple=True, nargs=2, callback= parse_normalized_difference, metavar="band1 band2",
@@ -50,7 +61,7 @@ for id in list_indices:
 
 
 @click.pass_context
-def radioindice(ctx, inputs : list, output : str, merge : bool, roi : str, window_size : int, nd : bool, *args) :
+def radioindice(ctx, inputs : list, output : str, indices : list, merge : bool, roi : str, window_size : int, nd : bool, **kwargs) :
     """Create and configure a new rastertool "Radioindice" according to argparse args
 
         Args:
@@ -58,12 +69,14 @@ def radioindice(ctx, inputs : list, output : str, merge : bool, roi : str, windo
 
         Returns:
             :obj:`eolab.rastertools.Radioindice`: The configured rastertool to run
-        """
+    """
+    #print(kwargs.keys)
+    #indices_to_compute = kwargs.keys
     indices_to_compute = []
 
     # append indices defined with --<name_of_indice>
     indices_to_compute.extend([indice for indice in Radioindice.get_default_indices()
-                               if indices])
+                               if argsdict[indice.name]])
     # append indices defined with --indices
     if indices:
         indices_dict = {indice.name: indice for indice in Radioindice.get_default_indices()}
