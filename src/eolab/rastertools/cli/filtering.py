@@ -68,7 +68,7 @@ pad_opt = click.option('-p','--pad',default="edge", type=click.Choice(['none','e
                   "(see https://numpy.org/doc/stable/reference/generated/numpy.pad.html"
                   "for more information)")
 
-band_opt = click.option('-b','--bands', type=list, help="List of bands to process")
+band_opt = click.option('-b','--bands', multiple = True, type=int, help="List of bands to process")
 
 all_opt = click.option('-a', '--all','all_bands', type=bool, is_flag=True, help="Process all bands")
 

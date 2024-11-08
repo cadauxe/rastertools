@@ -96,8 +96,8 @@ class TestCase:
             check_logs = False
 
         # run rastertools
-        # with pytest.raises(SystemExit) as wrapped_exception:
-        rastertools(self.args)
+        with pytest.raises(SystemExit) as wrapped_exception:
+            rastertools(self.args)
 
         # check sys_exit
         if check_sys_exit:

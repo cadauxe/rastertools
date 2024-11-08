@@ -20,7 +20,8 @@ from eolab.rastertools.cli.filtering_dyn import filter
 from eolab.rastertools.cli.hillshade import hillshade
 from eolab.rastertools.cli.speed import speed
 from eolab.rastertools.cli.svf import svf
-from eolab.rastertools.cli.tiling import tiling #timeseries, radioindice, zonalstats
+from eolab.rastertools.cli.tiling import tiling
+from eolab.rastertools.cli.timeseries import timeseries #radioindice, zonalstats
 from eolab.rastertools import __version__
 from eolab.rastertools.product import RasterType
 
@@ -217,8 +218,8 @@ rastertools.add_command(speed, name = "speed")
 rastertools.add_command(svf, name = "svf")
 rastertools.add_command(tiling, name = "ti")
 rastertools.add_command(tiling, name = "tiling")
-#rastertools.add_command(timeseries, name = "ts")
-#rastertools.add_command(timeseries, name = "timeseries")
+rastertools.add_command(timeseries, name = "ts")
+rastertools.add_command(timeseries, name = "timeseries")
 #rastertools.add_command(zonalstats, name = "zs")
 #rastertools.add_command(zonalstats, name = "zonalstats")
 

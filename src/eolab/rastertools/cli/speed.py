@@ -15,7 +15,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.command("speed",context_settings=CONTEXT_SETTINGS)
 @click.argument('inputs', type=str, nargs = -1, required = 1)
 
-@click.option('-b','--bands', type=list, help="List of bands to process")
+@click.option('-b','--bands', type=int, multiple = True, help="List of bands to process")
 
 @click.option('-a', '--all','all_bands', type=bool, is_flag=True, help="Process all bands")
 

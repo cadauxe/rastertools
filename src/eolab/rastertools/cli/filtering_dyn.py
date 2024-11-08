@@ -66,7 +66,7 @@ pad_opt = click.option('-p','--pad',default="edge", type=click.Choice(['none','e
                   "(see https://numpy.org/doc/stable/reference/generated/numpy.pad.html"
                   "for more information)")
 
-band_opt = click.option('-b','--bands', type=list, help="List of bands to process")
+band_opt = click.option('-b','--bands', type=int, multiple = True, help="List of bands to process")
 
 all_opt = click.option('-a', '--all','all_bands', type=bool, is_flag=True, help="Process all bands")
 
@@ -103,6 +103,8 @@ def create_filter(filter_name : str):
         You can provide a single file with extension \".lst\" (e.g. \"filtering.lst\") that lists
         the input files to process (one input file per line in .lst).
         """
+
+        print(bands)
         # Configure the filter tool instance
         tool = create_filtering(
             output=output,
