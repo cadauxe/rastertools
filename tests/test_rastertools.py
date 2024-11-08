@@ -177,7 +177,7 @@ def test_radioindice_command_line_default():
         # two indices with their own options, merge
         "-v ri --pvi --savi -o tests/tests_out -m tests/tests_data/listing.lst",
         # indices option, roi
-        "--verbose ri --indices pvi savi -nd nir red --roi tests/tests_data/COMMUNE_32001.shp"
+        "--verbose ri --indices pvi --indices savi -nd nir red --roi tests/tests_data/COMMUNE_32001.shp"
         " --output tests/tests_out"
         " tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.zip"
         " tests/tests_data/SENTINEL2B_20181023-105107-455_L2A_T30TYP_D.zip"

@@ -60,11 +60,13 @@ def radioindice(ctx, inputs : list, output : str, indices : list, merge : bool, 
         Returns:
             :obj:`eolab.rastertools.Radioindice`: The configured rastertool to run
     """
+    indices_opt = [key for key, value in kwargs.items() if value]
     indices_to_compute = []
 
     # append indices defined with --<name_of_indice>
     indices_to_compute.extend([indice for indice in Radioindice.get_default_indices()
-                               if indice.name in kwargs.keys()])
+                               if indice.name in indices_opt])
+
     # append indices defined with --indices
     if indices:
         indices_dict = {indice.name: indice for indice in Radioindice.get_default_indices()}
