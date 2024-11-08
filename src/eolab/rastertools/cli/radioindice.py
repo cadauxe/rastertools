@@ -12,16 +12,6 @@ import os
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
-def parse_normalized_difference(ctx, param, value):
-    """Parse the pairs of bands as (band1, band2) tuples."""
-    if value:
-        # Split the input pairs and store them as tuples
-        parsed_pairs = []
-        for i in range(0, len(value), 2):
-            parsed_pairs.append((value[i], value[i + 1]))
-        return parsed_pairs
-    return None
-
 
 def indices_opt(function):
     list_indices = ['--ndvi', '--tndvi', '--rvi', '--pvi', '--savi', '--tsavi', '--msavi', '--msavi2', '--ipvi',
@@ -53,7 +43,7 @@ def indices_opt(function):
 @indices_opt
 
 @click.option('-nd', '--normalized_difference','nd',type=str,
-    multiple=True, nargs=2, callback= parse_normalized_difference, metavar="band1 band2",
+    multiple=True, nargs=2, metavar="band1 band2",
               help="Compute the normalized difference of two bands defined"
                         "as parameter of this option, e.g. \"-nd red nir\" will compute (red-nir)/(red+nir). "
                         "See eolab.rastertools.product.rastertype.BandChannel for the list of bands names. "
@@ -70,13 +60,11 @@ def radioindice(ctx, inputs : list, output : str, indices : list, merge : bool, 
         Returns:
             :obj:`eolab.rastertools.Radioindice`: The configured rastertool to run
     """
-    #print(kwargs.keys)
-    #indices_to_compute = kwargs.keys
     indices_to_compute = []
 
     # append indices defined with --<name_of_indice>
     indices_to_compute.extend([indice for indice in Radioindice.get_default_indices()
-                               if argsdict[indice.name]])
+                               if indice.name in kwargs.keys()])
     # append indices defined with --indices
     if indices:
         indices_dict = {indice.name: indice for indice in Radioindice.get_default_indices()}
@@ -112,5 +100,6 @@ def radioindice(ctx, inputs : list, output : str, indices : list, merge : bool, 
     tool.with_roi(roi)
     tool.with_windows(window_size)
 
-    return tool
+    apply_process(ctx, tool, inputs)
+
 
