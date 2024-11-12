@@ -34,8 +34,7 @@ def indices_opt(function):
 
 @click.option('-ws', '--window_size', type=int, default = 1024, help="Size of tiles to distribute processing, default: 1024")
 
-@click.option('-i', '--indices', type=click.Choice(['ndvi', 'tndvi', 'rvi', 'pvi', 'savi', 'tsavi', 'msavi', 'msavi2', 'ipvi',
-                    'evi', 'ndwi', 'ndwi2', 'mndwi', 'ndpi', 'ndti', 'ndbi', 'ri', 'bi', 'bi2']), multiple = True,
+@click.option('-i', '--indices', type=str, multiple = True,
                     help=" List of indices to computePossible indices are: bi, bi2, evi, ipvi, mndwi, msavi, msavi2, ndbi, ndpi,"
                         " ndti, ndvi, ndwi, ndwi2, pvi, ri, rvi, savi, tndvi, tsavi")
 
