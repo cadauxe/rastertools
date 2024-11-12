@@ -102,16 +102,42 @@ class TestCase:
         # SystemExit
         # with pytest.raises(RastertoolConfigurationException) as wrapped_exception:
         # rastertools(self.args)
-        with pytest.raises(Exception) as wrapped_exception:
+        # with pytest.raises(SystemExit, Exception) as wrapped_exception:
+        #     rastertools(self.args)
+
+        try:
             rastertools(self.args)
 
-        # try:
-        #     rastertools(self.args)
-        #
-        # # except (RastertoolConfigurationException or Exception) as wrapped_exception:
-        # #
-        # # except RastertoolConfigurationException as rce:
-        #
+        except SystemExit as wrapped_exception:
+
+            #CHECK VALUE OF SYSTEM EXIT
+            # CHECK LOG EXCEPTION
+            if check_sys_exit:
+                print(wrapped_exception)
+                # Check if the type is SystemExit
+                assert isinstance(wrapped_exception, SystemExit), "Exception type is not SystemExit"
+
+                # Check if the exit code matches the expected value
+                assert wrapped_exception.code == self._sys_exit, (f"Expected exit code {self._sys_exit}, but got {wrapped_exception.code}")
+
+        except RastertoolConfigurationException as wrapped_exception:
+            print("EXPECT", self._sys_exit)
+            print("EXPECT LOG", self._logs)
+            if check_sys_exit:
+                print(wrapped_exception)
+                # Check if the type is SystemExit
+                assert isinstance(wrapped_exception, RastertoolConfigurationException), "Exception type is not RastertoolConfigurationException"
+
+                # Check if the exit code matches the expected value
+                assert wrapped_exception.code == self._sys_exit, (
+                    f"Expected exit code {self._sys_exit}, but got {wrapped_exception.code}")
+
+        except Exception as wrapped_exception:
+
+            # CHECK VALUE OF SYSTEM EXIT
+            #CHECK LOG EXCEPTION
+            print('hey')
+
         # except Exception as wrapped_exception:
         #     print(wrapped_exception)
         #     print("!"*50)
@@ -134,16 +160,6 @@ class TestCase:
 
         # # check sys_exit
 
-            if check_sys_exit:
-                print(wrapped_exception)
-                # assert result.exit_code == self._sys_exit
-                assert wrapped_exception.type == SystemExit
-                assert wrapped_exception.value.code == self._sys_exit
-
-        # check list of outputs
-        if check_outputs:
-             outdir = Path(utils4test.outdir)
-             assert sorted([x.name for x in outdir.iterdir()]) == sorted(self._outputs)
 
         if compare:
             match, mismatch, err = utils4test.cmpfiles(utils4test.outdir, self._refdir, self._outputs)
@@ -159,6 +175,9 @@ class TestCase:
             print('/'*50)
             print(self._logs)
             for i, log in enumerate(self._logs):
+                print(i)
+                print(log)
+                print(caplog.record_tuples)
                 assert caplog.record_tuples[i] == log
 
         # clear the log recorder

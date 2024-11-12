@@ -21,7 +21,9 @@ class RastertoolConfigurationException(Exception):
     """This class defines an exception that is raised when the configuration of the raster tool
     is invalid (wrong input parameter)
     """
-    pass
+    def __init__(self, message, code=None):
+        super().__init__(message)
+        self.code = code
 
 
 class Rastertool(ABC):

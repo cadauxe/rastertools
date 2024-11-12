@@ -73,7 +73,7 @@ def radioindice(ctx, inputs : list, output : str, indices : list, merge : bool, 
             if ind in indices_dict:
                 indices_to_compute.append(indices_dict[ind])
             else:
-                raise RastertoolConfigurationException(f"Invalid indice name: {ind}")
+                raise RastertoolConfigurationException(f"Invalid indice name: {ind}", code = 2)
 
     if nd:
         for nd in nd:
@@ -85,7 +85,7 @@ def radioindice(ctx, inputs : list, output : str, indices : list, merge : bool, 
                 indices_to_compute.append(new_indice)
             else:
                 raise RastertoolConfigurationException(
-                    f"Invalid band(s) in normalized difference: {nd[0]} and/or {nd[1]}")
+                    f"Invalid band(s) in normalized difference: {nd[0]} and/or {nd[1]}", code = 2)
 
     # handle special case: no indice setup
     if len(indices_to_compute) == 0:
