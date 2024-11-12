@@ -172,12 +172,11 @@ class TestCase:
 
         # check logs
         if check_logs:
-            print('/'*50)
-            print(self._logs)
+            print(caplog.record_tuples)
             for i, log in enumerate(self._logs):
                 print(i)
                 print(log)
-                print(caplog.record_tuples)
+                print(caplog.record_tuples[0][2])
                 assert caplog.record_tuples[i] == log
 
         # clear the log recorder
@@ -239,12 +238,12 @@ def test_radioindice_command_line_default():
         # no indice defined
         " -v ri -o tests/tests_out tests/tests_data/listing.lst",
         # two indices with their own options, merge
-        # "-v ri --pvi --savi -o tests/tests_out -m tests/tests_data/listing.lst",
-        # # indices option, roi
-        # "--verbose ri --indices pvi --indices savi -nd nir red --roi tests/tests_data/COMMUNE_32001.shp"
-        # " --output tests/tests_out"
-        # " tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.zip"
-        # " tests/tests_data/SENTINEL2B_20181023-105107-455_L2A_T30TYP_D.zip"
+        "-v ri --pvi --savi -o tests/tests_out -m tests/tests_data/listing.lst",
+        # indices option, roi
+        "--verbose ri --indices pvi --indices savi -nd nir red --roi tests/tests_data/COMMUNE_32001.shp"
+        " --output tests/tests_out"
+        " tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.zip"
+        " tests/tests_data/SENTINEL2B_20181023-105107-455_L2A_T30TYP_D.zip"
     ]
     # get list of expected outputs
     indices_list = ["ndvi ndwi ndwi2", "indices", "pvi savi nd[nir-red]"]
@@ -290,34 +289,33 @@ def test_radioindice_command_line_errors(caplog):
     # list of commands to test
     argslist = [
         # missing positional argument
-        # "ri --ndvi",
+        "ri --ndvi",
         # unkwnow indice
         "ri tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.zip --indices strange",
         # unknown raster type: unrecognized raster type
-        #  "-v ri --ndvi -o tests/tests_out tests/tests_data/OCS_2017_CESBIO_extract.tif",
-        # # unknown raster type: unsupported extension
-        #"-v ri --ndvi -o tests/tests_out tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.aaa",
-        # # output dir does not exist
-        # "-v ri -o ./toto --ndvi tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.zip",
-        # # unknown band in normalized difference
-        # "-v ri -nd unknown red tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.zip"
+         "-v ri --ndvi -o tests/tests_out tests/tests_data/OCS_2017_CESBIO_extract.tif",
+        # unknown raster type: unsupported extension
+        "-v ri --ndvi -o tests/tests_out tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.aaa",
+        # output dir does not exist
+        "-v ri -o ./toto --ndvi tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.zip",
+        # unknown band in normalized difference
+        "-v ri -nd unknown red tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.zip"
     ]
 
     # expected logs
     logslist = [
         # [],
-        [("eolab.rastertools.main", logging.ERROR, "Invalid indice name: strange")],
-        # [("main", logging.ERROR,
-        # #    "Unsupported input file, no matching raster type identified to handle the file")],
-        # # [("eolab.rastertools.main", logging.ERROR,
-        # #   "Unsupported input file tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.aaa")],
-        # # [("eolab.rastertools.main", logging.ERROR,
-        # #   "Output directory \"./toto\" does not exist.")],
-        # [("eolab.rastertools.main", logging.ERROR,
-        #   "Invalid band(s) in normalized difference: unknown and/or red")]
+        [("main", logging.ERROR, "Invalid indice name: strange")],
+        [("main", logging.ERROR,
+           "Unsupported input file, no matching raster type identified to handle the file")],
+        [("eolab.rastertools.main", logging.ERROR,
+          "Unsupported input file tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.aaa")],
+        [("eolab.rastertools.main", logging.ERROR,
+          "Output directory \"./toto\" does not exist.")],
+        [("eolab.rastertools.main", logging.ERROR,
+          "Invalid band(s) in normalized difference: unknown and/or red")]
     ]
-    #sysexitlist = [2, 2, 1, 1, 2, 2]
-    sysexitlist = [2]
+    sysexitlist = [2, 2, 1, 1, 2, 2]
 
     # generate test cases
     tests = [TestCase(args).with_logs(logs).with_sys_exit(sysexit)

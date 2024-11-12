@@ -3,12 +3,16 @@
 """
 CLI definition for the radioindice tool
 """
+import logging
+
 from eolab.rastertools import RastertoolConfigurationException, Radioindice
 from eolab.rastertools.cli.utils_cli import apply_process
 from eolab.rastertools.product import BandChannel
 from eolab.rastertools.processing import RadioindiceProcessing
 import click
 import os
+
+_logger = logging.getLogger("main")
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
@@ -73,6 +77,7 @@ def radioindice(ctx, inputs : list, output : str, indices : list, merge : bool, 
             if ind in indices_dict:
                 indices_to_compute.append(indices_dict[ind])
             else:
+                _logger.exception(RastertoolConfigurationException(f"Invalid indice name: {ind}"))
                 raise RastertoolConfigurationException(f"Invalid indice name: {ind}", code = 2)
 
     if nd:
@@ -84,6 +89,7 @@ def radioindice(ctx, inputs : list, output : str, indices : list, merge : bool, 
                     [channel2, channel1])
                 indices_to_compute.append(new_indice)
             else:
+                _logger.exception(RastertoolConfigurationException(f"Invalid band(s) in normalized difference: {nd[0]} and/or {nd[1]}"))
                 raise RastertoolConfigurationException(
                     f"Invalid band(s) in normalized difference: {nd[0]} and/or {nd[1]}", code = 2)
 
@@ -101,6 +107,6 @@ def radioindice(ctx, inputs : list, output : str, indices : list, merge : bool, 
     tool.with_roi(roi)
     tool.with_windows(window_size)
 
-    apply_process(ctx, tool, inputs)
+    apply_process(ctx, tool, inputs, _logger)
 
 
