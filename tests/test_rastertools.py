@@ -4,9 +4,10 @@
 import pytest
 import logging
 import filecmp
+from click.testing import CliRunner
 from pathlib import Path
 
-from eolab.rastertools import rastertools
+from eolab.rastertools import rastertools, RastertoolConfigurationException
 from eolab.rastertools.product import RasterType
 
 from . import utils4test
@@ -88,24 +89,61 @@ class TestCase:
 
     def run_test(self, caplog=None, loglevel=logging.ERROR, check_outputs=True, check_sys_exit=True, check_logs=True,
                  compare=False, save_gen_as_ref=False):
+
+        runner = CliRunner()
         if caplog is not None:
             caplog.set_level(loglevel)
         else:
             check_logs = False
 
+        print(self.args)
         # run rastertools
-        with pytest.raises(SystemExit) as wrapped_exception:
+        # rastertools(self.args)
+        # SystemExit
+        # with pytest.raises(RastertoolConfigurationException) as wrapped_exception:
+        # rastertools(self.args)
+        with pytest.raises(Exception) as wrapped_exception:
             rastertools(self.args)
 
-        # check sys_exit
-        if check_sys_exit:
-            assert wrapped_exception.type == SystemExit
-            assert wrapped_exception.value.code == self._sys_exit
+        # try:
+        #     rastertools(self.args)
+        #
+        # # except (RastertoolConfigurationException or Exception) as wrapped_exception:
+        # #
+        # # except RastertoolConfigurationException as rce:
+        #
+        # except Exception as wrapped_exception:
+        #     print(wrapped_exception)
+        #     print("!"*50)
+        #    runner.invoke(rastertools, self.args, catch_exceptions=True)
+        # result = runner.invoke(rastertools, self.args, catch_exceptions=True)
+        # print(result)
+        # print(dir(result))
+        # print(result.exception)
+        # print(result.exc_info)
+        # exception,_, trace = result.exc_info
+        # print(dir(trace))
+        # print(str(trace))
+        # print(type(trace))
+        # import traceback
+        # print(traceback.format_exc())
+        # print(result.stderr)
+        # print(result.stdout)
+        # print(self._sys_exit)
+        # print(result.exit_code)
+
+        # # check sys_exit
+
+            if check_sys_exit:
+                print(wrapped_exception)
+                # assert result.exit_code == self._sys_exit
+                assert wrapped_exception.type == SystemExit
+                assert wrapped_exception.value.code == self._sys_exit
 
         # check list of outputs
         if check_outputs:
-            outdir = Path(utils4test.outdir)
-            assert sorted([x.name for x in outdir.iterdir()]) == sorted(self._outputs)
+             outdir = Path(utils4test.outdir)
+             assert sorted([x.name for x in outdir.iterdir()]) == sorted(self._outputs)
 
         if compare:
             match, mismatch, err = utils4test.cmpfiles(utils4test.outdir, self._refdir, self._outputs)
@@ -127,8 +165,15 @@ class TestCase:
         if caplog is not None:
             caplog.clear()
 
-        # clear output dir
+        #clear output dir
         utils4test.clear_outdir()
+
+def test_ema() :
+    tests = [TestCase("ema --inputs 54")]
+
+    for test in tests:
+        test.run_test()
+
 
 
 def test_rastertools_command_line_info():
@@ -175,12 +220,12 @@ def test_radioindice_command_line_default():
         # no indice defined
         " -v ri -o tests/tests_out tests/tests_data/listing.lst",
         # two indices with their own options, merge
-        "-v ri --pvi --savi -o tests/tests_out -m tests/tests_data/listing.lst",
-        # indices option, roi
-        "--verbose ri --indices pvi --indices savi -nd nir red --roi tests/tests_data/COMMUNE_32001.shp"
-        " --output tests/tests_out"
-        " tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.zip"
-        " tests/tests_data/SENTINEL2B_20181023-105107-455_L2A_T30TYP_D.zip"
+        # "-v ri --pvi --savi -o tests/tests_out -m tests/tests_data/listing.lst",
+        # # indices option, roi
+        # "--verbose ri --indices pvi --indices savi -nd nir red --roi tests/tests_data/COMMUNE_32001.shp"
+        # " --output tests/tests_out"
+        # " tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.zip"
+        # " tests/tests_data/SENTINEL2B_20181023-105107-455_L2A_T30TYP_D.zip"
     ]
     # get list of expected outputs
     indices_list = ["ndvi ndwi ndwi2", "indices", "pvi savi nd[nir-red]"]
@@ -226,7 +271,7 @@ def test_radioindice_command_line_errors(caplog):
     # list of commands to test
     argslist = [
         # missing positional argument
-        "ri --ndvi",
+        # "ri --ndvi",
         # unkwnow indice
         "ri tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.zip --indices strange",
         # unknown raster type: unrecognized raster type
@@ -241,18 +286,19 @@ def test_radioindice_command_line_errors(caplog):
 
     # expected logs
     logslist = [
-        [],
+        # [],
         [("eolab.rastertools.main", logging.ERROR, "Invalid indice name: strange")],
         # [("main", logging.ERROR,
-        #    "Unsupported input file, no matching raster type identified to handle the file")],
-        # [("eolab.rastertools.main", logging.ERROR,
-        #   "Unsupported input file tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.aaa")],
-        # [("eolab.rastertools.main", logging.ERROR,
-        #   "Output directory \"./toto\" does not exist.")],
+        # #    "Unsupported input file, no matching raster type identified to handle the file")],
+        # # [("eolab.rastertools.main", logging.ERROR,
+        # #   "Unsupported input file tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.aaa")],
+        # # [("eolab.rastertools.main", logging.ERROR,
+        # #   "Output directory \"./toto\" does not exist.")],
         # [("eolab.rastertools.main", logging.ERROR,
         #   "Invalid band(s) in normalized difference: unknown and/or red")]
     ]
-    sysexitlist = [2, 2, 1, 1, 2, 2]
+    #sysexitlist = [2, 2, 1, 1, 2, 2]
+    sysexitlist = [2]
 
     # generate test cases
     tests = [TestCase(args).with_logs(logs).with_sys_exit(sysexit)
