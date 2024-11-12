@@ -120,6 +120,7 @@ class TestCase:
 
         # check logs
         if check_logs:
+            print(self._logs)
             for i, log in enumerate(self._logs):
                 assert caplog.record_tuples[i] == log
 
@@ -418,7 +419,7 @@ def test_zonalstats_command_line_default():
     argslist = [
         # specify stats to compute and sigma, 1st band computed
         "-v zs -o tests/tests_out -f GeoJSON"
-        " -g tests/tests_data/COMMUNE_32xxx.geojson --stats min max --sigma 1.0"
+        " -g tests/tests_data/COMMUNE_32xxx.geojson --stats min --stats max --sigma 1.0"
         " tests/tests_data/listing2.lst",
         # default stats, all bands computed
         "-v zs -o tests/tests_out -f GeoJSON"
