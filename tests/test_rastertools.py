@@ -16,6 +16,8 @@ __author__ = "Olivier Queyrut"
 __copyright__ = "Copyright 2019, CNES"
 __license__ = "Apache v2.0"
 
+from .utils4test import RastertoolsTestsData
+
 
 class TestCase:
     __test__ = False
@@ -135,45 +137,31 @@ class TestCase:
         #clear output dir
         utils4test.clear_outdir()
 
-# def test_ema() :
-#     tests = [TestCase("ema --inputs 54")]
-#
-#     for test in tests:
-#         test.run_test()
-
-
 
 def test_rastertools_command_line_info():
+
     tests = [
         TestCase("--help"),
         TestCase("-h"),
         TestCase("--version"),
         TestCase(""),
+        TestCase("radioindice --help"),
+        TestCase("ri -h"),
+        TestCase("zonalstats --help"),
+        TestCase("zs -h"),
+        TestCase("tiling --help"),
+        TestCase("ti -h"),
         TestCase("filter --help"),
-        TestCase("fi -h")
+        TestCase("fi -h"),
+        TestCase("timeseries --help"),
+        TestCase("ts -h"),
+        TestCase("speed --help"),
+        TestCase("sp -h"),
+        TestCase("svf --help"),
+        TestCase("svf -h"),
+        TestCase("hillshade --help"),
+        TestCase("hs -h")
     ]
-    # tests = [
-    #     TestCase("--help"),
-    #     TestCase("-h"),
-    #     TestCase("--version"),
-    #     TestCase(""),
-    #     TestCase("radioindice --help"),
-    #     TestCase("ri -h"),
-    #     TestCase("zonalstats --help"),
-    #     TestCase("zs -h"),
-    #     TestCase("tiling --help"),
-    #     TestCase("ti -h"),
-    #     TestCase("filter --help"),
-    #     TestCase("fi -h"),
-    #     TestCase("timeseries --help"),
-    #     TestCase("ts -h"),
-    #     TestCase("speed --help"),
-    #     TestCase("sp -h"),
-    #     TestCase("svf --help"),
-    #     TestCase("svf -h"),
-    #     TestCase("hillshade --help"),
-    #     TestCase("hs -h")
-    # ]
     for test in tests:
         test.run_test()
 
@@ -548,7 +536,7 @@ def test_tiling_command_line_default():
     # list of commands to test
     argslist = [
         # default case with listing of input files
-        "-v ti -o tests/tests_out -g tests/tests_data/grid.geojson tests/tests_data/listing3.lst",
+        f"-v ti -o tests/tests_out -g {RastertoolsTestsData.tests_input_data_dir}/grid.geojson tests/tests_data/listing3.lst",
         # default case with input file
         "--verbose ti -o tests/tests_out -g tests/tests_data/grid.geojson"
         " tests/tests_data/tif_file.tif",
@@ -625,8 +613,7 @@ def test_tiling_command_line_errors(caplog):
         "-v ti -o tests/tests_out -g tests/tests_data/grid.geojson --id 77 --id 93 --id_col truc"
         " tests/tests_data/tif_file.tif",
         # output dir does not exist
-        "-v ti -o tests/truc -g tests/tests_data/grid.geojson"
-        " tests/tests_data/tif_file.tif",
+        "-v ti -o tests/truc -g tests/tests_data/grid.geojson tests/tests_data/tif_file.tif",
         # all invalid ids
         "-v ti -o tests/tests_out -g tests/tests_data/grid.geojson --id 1 --id 2 --id_col id"
         " tests/tests_data/tif_file.tif"
@@ -634,13 +621,13 @@ def test_tiling_command_line_errors(caplog):
 
     # expected logs
     logslist = [
-        [("eolab.rastertools.main", logging.ERROR,
+        [("eolab.rastertools.tiling", logging.ERROR,
           "Ids cannot be specified when id_col is not defined")],
-        [("eolab.rastertools.main", logging.ERROR,
+        [("eolab.rastertools.tiling", logging.ERROR,
           "Invalid id column named \"truc\": it does not exist in the grid")],
         [("eolab.rastertools.main", logging.ERROR,
           "Output directory \"tests/truc\" does not exist.")],
-        [("eolab.rastertools.main", logging.ERROR,
+        [("eolab.rastertools.tiling", logging.ERROR,
           "No value in the grid column \"id\" are matching the given list of ids [1, 2]")]
     ]
     sysexitlist = [2, 2, 2, 2]
@@ -698,8 +685,8 @@ def test_filtering_command_line_errors(caplog):
         "-v filter adaptive_gaussian --kernel_size 32 -o tests/tests_out"
         " tests/tests_data/RGB_TIF_20170105_013442_test.tif",
         # # kernel_size > window_size
-        # "-v filter median -a --kernel_size 15 --window_size 16 -o tests/tests_out"
-        # " tests/tests_data/RGB_TIF_20170105_013442_test.tif",
+        "-v filter median -a --kernel_size 15 --window_size 16 -o tests/tests_out"
+        " tests/tests_data/RGB_TIF_20170105_013442_test.tif",
     ]
 
     # expected logs
@@ -707,9 +694,9 @@ def test_filtering_command_line_errors(caplog):
         [("eolab.rastertools.main", logging.ERROR,
           "Output directory \"tests/truc\" does not exist.")],
         [],
-        # [("eolab.rastertools.main", logging.ERROR,
-        #   "The kernel size (option --kernel_size, value=15) must be strictly less than the "
-        #   "window size minus 1 (option --window_size, value=16)")]
+        [("eolab.rastertools.main", logging.ERROR,
+          "The kernel size (option --kernel_size, value=15) must be strictly less than the "
+          "window size minus 1 (option --window_size, value=16)")]
     ]
     sysexitlist = [2, 2, 1]
 
