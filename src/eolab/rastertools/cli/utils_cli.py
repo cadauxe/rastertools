@@ -4,7 +4,7 @@ import sys
 import click
 
 #TO DO
-#_logger = logging.getLogger("main")
+_logger = logging.getLogger("eolab.rastertools.main")
 
 def _extract_files_from_list(cmd_inputs):
     """
@@ -43,7 +43,7 @@ def _extract_files_from_list(cmd_inputs):
     return inputs
 
 
-def apply_process(ctx, tool, inputs : list, logger):
+def apply_process(ctx, tool, inputs : list):
     """
     Apply the chosen process to a set of input files.
 
@@ -76,16 +76,16 @@ def apply_process(ctx, tool, inputs : list, logger):
         # launch process
         tool.process_files(inputs_extracted)
 
-        logger.info("Done!")
+        _logger.info("Done!")
 
     except RastertoolConfigurationException as rce:
         print('@'*50)
-        logger.exception(rce)
+        _logger.exception(rce)
         sys.exit(2)
 
     except Exception as err:
         print('!' * 50)
-        logger.exception(err)
+        _logger.exception(err)
         sys.exit(1)
     print('?' * 50)
     sys.exit(0)

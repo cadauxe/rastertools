@@ -13,17 +13,18 @@ parts in order to distribute the processing over several cpus).
 """
 from abc import ABC
 from typing import List
+import logging
+import sys
 
 from eolab.rastertools import utils
 
+_logger = logging.getLogger("eolab.rastertools.main")
 
 class RastertoolConfigurationException(Exception):
     """This class defines an exception that is raised when the configuration of the raster tool
     is invalid (wrong input parameter)
     """
-    def __init__(self, message, code=None):
-        super().__init__(message)
-        self.code = code
+    pass
 
 
 class Rastertool(ABC):
@@ -68,8 +69,9 @@ class Rastertool(ABC):
             possible to chain the with... calls (fluent API)
         """
         if outputdir and not utils.is_dir(outputdir):
-            raise RastertoolConfigurationException(
-                f"Output directory \"{str(outputdir)}\" does not exist.")
+            _logger.exception(
+                RastertoolConfigurationException(f"Output directory \"{str(outputdir)}\" does not exist."))
+            sys.exit(2)
         self._outputdir = outputdir
         return self
 
