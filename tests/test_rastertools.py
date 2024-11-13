@@ -101,8 +101,8 @@ class TestCase:
         try:
             rastertools(self.args)
 
-        except SystemExit as wrapped_exception: #, RastertoolConfigurationException, Exception
-
+        except SystemExit as wrapped_exception:
+            print(wrapped_exception)
             if check_sys_exit:
                 # Check if the exit code matches the expected value
                 assert wrapped_exception.code == self._sys_exit, (f"Expected exit code {self._sys_exit}, but got {wrapped_exception.code}")
@@ -123,6 +123,7 @@ class TestCase:
 
         # check logs
         if check_logs:
+            print('...'*20)
             print(caplog.record_tuples)
             for i, log in enumerate(self._logs):
                 assert caplog.record_tuples[i] == log
@@ -385,12 +386,11 @@ def test_timeseries_command_line_errors(caplog):
         " tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D.zip"
         " tests/tests_data/S2A_MSIL2A_20190116T105401_N0211_R051_T30TYP_20190116T120806.zip" + period,
         # invalid date format
-        "-v ts --o tests/tests_out"
-        " tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D-ndvi.tif"
+        "-v ts -o tests/tests_out tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D-ndvi.tif"
         " tests/tests_data/SENTINEL2B_20181023-105107-455_L2A_T30TYP_D-ndvi.tif"
         " -s 20180926 -e 2018-11-07 -p 20",
         # invalid date format
-        "-v ts --o tests/tests_out"
+        "-v ts -o tests/tests_out"
         " tests/tests_data/SENTINEL2A_20180928-105515-685_L2A_T30TYP_D-ndvi.tif"
         " tests/tests_data/SENTINEL2B_20181023-105107-455_L2A_T30TYP_D-ndvi.tif"
         " -s 2018-09-26 -e 20181107 -p 20"
@@ -622,13 +622,13 @@ def test_tiling_command_line_errors(caplog):
         "-v ti --id 77 93 -o tests/tests_out -g tests/tests_data/grid.geojson"
         " tests/tests_data/tif_file.tif",
         # invalid id column
-        "-v ti -o tests/tests_out -g tests/tests_data/grid.geojson --id 77 93 --id_col truc"
+        "-v ti -o tests/tests_out -g tests/tests_data/grid.geojson --id 77 --id 93 --id_col truc"
         " tests/tests_data/tif_file.tif",
         # output dir does not exist
         "-v ti -o tests/truc -g tests/tests_data/grid.geojson"
         " tests/tests_data/tif_file.tif",
         # all invalid ids
-        "-v ti -o tests/tests_out -g tests/tests_data/grid.geojson --id 1 2 --id_col id"
+        "-v ti -o tests/tests_out -g tests/tests_data/grid.geojson --id 1 --id 2 --id_col id"
         " tests/tests_data/tif_file.tif"
     ]
 
