@@ -13,10 +13,10 @@ import sys
 import os
 import logging
 
+_logger = logging.getLogger(__name__)
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
-_logger = logging.getLogger("eolab.rastertools.main")
 
-#Speed command
+#Timeseries command
 @click.command("timeseries",context_settings=CONTEXT_SETTINGS)
 @click.argument('inputs', type=str, nargs = -1, required = 1)
 

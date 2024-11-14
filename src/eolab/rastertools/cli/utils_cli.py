@@ -4,7 +4,7 @@ import sys
 import click
 
 #TO DO
-_logger = logging.getLogger("eolab.rastertools.main")
+_logger = logging.getLogger(__name__)
 
 def _extract_files_from_list(cmd_inputs):
     """

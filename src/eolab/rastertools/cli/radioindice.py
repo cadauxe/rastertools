@@ -13,7 +13,7 @@ import sys
 import click
 import os
 
-_logger = logging.getLogger("eolab.rastertools.main")
+_logger = logging.getLogger(__name__)
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 

@@ -18,7 +18,7 @@ import sys
 
 from eolab.rastertools import utils
 
-_logger = logging.getLogger("eolab.rastertools.main")
+_logger = logging.getLogger(__name__)
 
 class RastertoolConfigurationException(Exception):
     """This class defines an exception that is raised when the configuration of the raster tool
