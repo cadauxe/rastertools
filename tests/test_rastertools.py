@@ -98,13 +98,10 @@ class TestCase:
         else:
             check_logs = False
 
-        print(self.args)
-
         try:
             rastertools(self.args)
 
         except SystemExit as wrapped_exception:
-            print(wrapped_exception)
             if check_sys_exit:
                 # Check if the exit code matches the expected value
                 assert wrapped_exception.code == self._sys_exit, (f"Expected exit code {self._sys_exit}, but got {wrapped_exception.code}")
@@ -125,8 +122,6 @@ class TestCase:
 
         # check logs
         if check_logs:
-            print('...'*20)
-            print(caplog.record_tuples)
             for i, log in enumerate(self._logs):
                 assert caplog.record_tuples[i] == log
 
