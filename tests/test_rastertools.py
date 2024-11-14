@@ -7,7 +7,7 @@ import filecmp
 from click.testing import CliRunner
 from pathlib import Path
 
-from eolab.rastertools import rastertools, RastertoolConfigurationException
+from eolab.rastertools import rastertools
 from eolab.rastertools.product import RasterType
 
 from . import utils4test
@@ -108,11 +108,11 @@ class TestCase:
 
         # check list of outputs
         if check_outputs:
-            outdir = Path(utils4test.outdir)
+            outdir = Path(RastertoolsTestsData.tests_output_data_dir + "/")
             assert sorted([x.name for x in outdir.iterdir()]) == sorted(self._outputs)
 
         if compare:
-            match, mismatch, err = utils4test.cmpfiles(utils4test.outdir, self._refdir, self._outputs)
+            match, mismatch, err = utils4test.cmpfiles(RastertoolsTestsData.tests_output_data_dir + "/", self._refdir, self._outputs)
             assert len(match) == 3
             assert len(mismatch) == 0
             assert len(err) == 0

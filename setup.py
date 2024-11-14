@@ -9,6 +9,7 @@
 """
 import os
 from setuptools import setup, find_packages
+from sphinx.builders.html import setup_resource_paths
 
 with open('src/eolab/rastertools/__init__.py') as f:
     for line in f:
@@ -33,18 +34,17 @@ if __name__ == "__main__":
               packages=find_packages(exclude=['tests']),
               include_package_data=True,
               zip_safe=False,
+              setup_requires = ["setuptools_scm"],
               install_requires=[
                   'click>=4.0',
                   'rasterio>=1.2.0',
               ],
               extras_require={
-                  'test': ['pytest>=3.6', 'sphinx'],
+                  'test': ['pytest>=3.6'],
               },
               entry_points="""
-              [rasterio.rio_plugins]
-              rastertools=src.eolab.rastertools:rastertools
               """,
-              python_requires='>=3.6',
+              python_requires='>=3.9',
               use_scm_version={"version_scheme": "no-guess-dev"})
     except:  # noqa
         print(
