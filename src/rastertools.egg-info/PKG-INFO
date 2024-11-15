@@ -1,8 +1,8 @@
 Metadata-Version: 2.1
 Name: rastertools
-Version: 0.6.1.post1.dev19+gebce3d0.d20241113
-Summary: Compute radiometric indices and zonal statistics on rasters
-Home-page: https://github.com/cnes/rastertools
+Version: 0.1.0
+Summary: Collection of tools for raster data
+Home-page: https://github.com/CNES/rastertools
 Author: Olivier Queyrut
 Author-email: olivier.queyrut@cnes.fr
 License: apache v2
@@ -12,10 +12,13 @@ Project-URL: Issues, https://github.com/cnes/rastertools/issues
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE.txt
 License-File: AUTHORS.rst
-Requires-Dist: importlib-metadata; python_version < "3.8"
+Requires-Dist: click>=4.0
+Requires-Dist: rasterio>=1.2.0
+Requires-Dist: pytest>=3.6
 Provides-Extra: testing
 Requires-Dist: setuptools; extra == "testing"
 Requires-Dist: pytest; extra == "testing"

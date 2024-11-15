@@ -9,21 +9,21 @@
 """
 import os
 from setuptools import setup, find_packages
-from sphinx.builders.html import setup_resource_paths
+# from sphinx.builders.html import setup_resource_paths
 
-with open('src/eolab/rastertools/__init__.py') as f:
-    for line in f:
-        if line.find("__version__") >= 0:
-            version = line.split("=")[1].strip()
-            version = version.strip('"')
-            version = version.strip("'")
-            break
+# with open('src/eolab/rastertools/__init__.py') as f:
+#     for line in f:
+#         if line.find("__version__") >= 0:
+#             version = line.split("=")[1].strip()
+#             version = version.strip('"')
+#             version = version.strip("'")
+#             break
 
 
 if __name__ == "__main__":
     try:
         setup(name='rastertools',
-              version=version,
+              version="0.1.0",
               description=u"Collection of tools for raster data",
               long_description="",
               classifiers=[],
@@ -38,12 +38,10 @@ if __name__ == "__main__":
               install_requires=[
                   'click>=4.0',
                   'rasterio>=1.2.0',
+                  'pytest>=3.6'
               ],
-              extras_require={
-                  'test': ['pytest>=3.6'],
-              },
-              entry_points="""
-              """,
+              entry_points={'rasterio.plugins': [  # This is the correct entry point for Rasterio plugins
+              'rastertools = src.eolab.rastertools.main:rastertools']},
               python_requires='>=3.9',
               use_scm_version={"version_scheme": "no-guess-dev"})
     except:  # noqa

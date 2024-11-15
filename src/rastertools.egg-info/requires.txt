@@ -1,6 +1,6 @@
-
-[:python_version < "3.8"]
-importlib-metadata
+click>=4.0
+rasterio>=1.2.0
+pytest>=3.6
 
 [testing]
 setuptools
