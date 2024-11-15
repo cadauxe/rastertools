@@ -36,13 +36,23 @@ if __name__ == "__main__":
               zip_safe=False,
               setup_requires = ["setuptools_scm"],
               install_requires=[
-                  'click>=4.0',
-                  'rasterio>=1.2.0',
-                  'pytest>=3.6'
+                  'click',
+                  'rasterio==1.3.0',
+                  'pytest>=3.6',
+                  'pytest-cov',
+                  'geopandas==0.13',
+                  'fiona==1.8.21',
+                  'matplotlib',
+                  'scipy==1.8',
+                  'gdal==3.5.0',
+                  'tqdm==4.66'
               ],
-              entry_points={'rasterio.plugins': [  # This is the correct entry point for Rasterio plugins
-              'rastertools = src.eolab.rastertools.main:rastertools']},
-              python_requires='>=3.9',
+              extras_require={
+                  "gdal": ["gdal>=3.0.0,<4.0.0"],
+              },
+              entry_points="""[rasterio.plugins]
+              rastertools=src.eolab.rastertools.main:rastertools""",
+              python_requires='==3.8.13',
               use_scm_version={"version_scheme": "no-guess-dev"})
     except:  # noqa
         print(
