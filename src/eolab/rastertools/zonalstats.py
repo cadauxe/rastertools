@@ -26,6 +26,7 @@ import geopandas as gpd
 import sys
 
 import rasterio
+from osgeo import gdal
 
 from eolab.rastertools import utils
 from eolab.rastertools import Rastertool, RastertoolConfigurationException
@@ -408,15 +409,18 @@ class Zonalstats(Rastertool):
 
             # open raster to get metadata
             raster = product.get_raster()
-            with rasterio.open(raster) as rst:
-                bound = int(rst.count)
-                indexes = rst.indexes
-                descr = rst.descriptions
+            rst = gdal.Open(raster)
 
-                geotransform = rst.get_transform()
-                width = np.abs(geotransform[1])
-                height = np.abs(geotransform[5])
-                area_square_meter = width * height
+            bound = int(rst.RasterCount)
+            indexes = list(range(1, rst.RasterCount + 1))
+            descr = []
+            for band_idx in indexes:  # GDAL bands are 1-indexed
+                band = rst.GetRasterBand(band_idx)
+                descr.append(band.GetDescription())
+
+            width = rst.RasterXSize
+            height = rst.RasterYSize
+            area_square_meter = width * height
 
             date_str = product.get_date_string('%Y%m%d-%H%M%S')
 

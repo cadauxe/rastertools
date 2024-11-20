@@ -9,6 +9,7 @@ import re
 import datetime
 
 import numpy as np
+from osgeo import gdal
 from scipy.stats import median_abs_deviation
 import pandas as pd
 import geopandas as gpd
@@ -70,19 +71,48 @@ def compute_zonal_stats(geoms: gpd.GeoDataFrame, image: str,
         ```
     """
     nb_geoms = len(geoms)
-    with rasterio.open(image) as src:
-        geom_gen = (geoms.iloc[i].geometry for i in range(nb_geoms))
-        geom_windows = ((geom, features.geometry_window(src, [geom])) for geom in geom_gen)
 
-        statistics = []
-        disable = os.getenv("RASTERTOOLS_NOTQDM", 'False').lower() in ['true', '1']
-        for geom, window in tqdm(geom_windows, total=nb_geoms, disable=disable, desc="zonalstats"):
-            data = src.read(bands, window=window)
-            transform = src.window_transform(window)
+    src = gdal.Open(image)
+    nodata = src.GetRasterBand(1).GetNoDataValue()
 
-            s = _compute_stats((data, transform, [geom], window),
-                               src.nodata, stats, categorical)
-            statistics.append(s)
+    raster_crs = src.GetProjection()  # Get the CRS from the raster (WKT format)
+    geoms = geoms.to_crs(raster_crs)  # Transform the geometries to match the raster's CRS
+
+    # Ensure to pass the transform from the raster to geometry_window
+    transform = src.GetGeoTransform()
+
+    geom_gen = (geoms.iloc[i].geometry for i in range(nb_geoms))
+    geom_windows = ((geom, features.geometry_window(transform, [geom])) for geom in geom_gen)
+
+    statistics = []
+    disable = os.getenv("RASTERTOOLS_NOTQDM", 'False').lower() in ['true', '1']
+    for geom, window in tqdm(geom_windows, total=nb_geoms, disable=disable, desc="zonalstats"):
+        x_offset = int(window.col_off)
+        y_offset = int(window.row_off)
+        x_size = int(window.width)
+        y_size = int(window.height)
+
+        data = np.array([src.GetRasterBand(band).ReadAsArray(x_offset, y_offset, x_size, y_size) for band in bands])
+
+        transform = src.window_transform(window)
+
+        s = _compute_stats((data, transform, [geom], window),
+                               nodata, stats, categorical)
+        statistics.append(s)
+
+    # with rasterio.open(image) as src:
+    #     geom_gen = (geoms.iloc[i].geometry for i in range(nb_geoms))
+    #     geom_windows = ((geom, features.geometry_window(src, [geom])) for geom in geom_gen)
+    #
+    #     statistics = []
+    #     disable = os.getenv("RASTERTOOLS_NOTQDM", 'False').lower() in ['true', '1']
+    #     for geom, window in tqdm(geom_windows, total=nb_geoms, disable=disable, desc="zonalstats"):
+    #         data = src.read(bands, window=window)
+    #         transform = src.window_transform(window)
+    #
+    #         s = _compute_stats((data, transform, [geom], window),
+    #                            src.nodata, stats, categorical)
+    #         statistics.append(s)
 
     return statistics
 

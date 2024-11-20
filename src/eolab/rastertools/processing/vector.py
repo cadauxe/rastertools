@@ -11,9 +11,10 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import shapely.geometry
-from osgeo import gdal
+from osgeo import gdal, osr
 import rasterio
 from rasterio import features, warp, windows
+from shapely.geometry import Polygon
 
 from eolab.rastertools import utils
 
@@ -66,25 +67,46 @@ def filter(geoms: Union[gpd.GeoDataFrame, Path, str], raster: Union[Path, str],
     geoms_crs = _get_geoms_crs(geometries)
 
     file = raster.as_posix() if isinstance(raster, Path) else raster
-    with rasterio.open(file) as dataset:
-        l, b, r, t = dataset.bounds
-        px, py = ([l, l, r, r], [b, t, t, b])
+    src = gdal.Open(file)
+    gt = src.GetGeoTransform()
+    width = src.RasterXSize
+    height = src.RasterYSize
 
-        if(geoms_crs != dataset.crs):
-            px, py = warp.transform(dataset.crs, geoms_crs, [l, l, r, r], [b, t, t, b])
+    # Get raster bounds
+    l = gt[0]  # Left
+    t = gt[3]  # Top
+    r = gt[0] + width * gt[1]  # Right
+    b = gt[3] + height * gt[5]  # Bottom
 
-        polygon = shapely.geometry.Polygon([(x, y) for x, y in zip(px, py)])
-        if within:
-            # convert geometries into GeoPandasBaseExtended to use the new cix property
-            filtered_geoms = geometries[geometries.within(polygon)]
-        else:
-            filtered_geoms = geometries[geometries.intersects(polygon)]
+    # Define corner points of the raster
+    px, py = ([l, l, r, r], [b, t, t, b])
 
-        if output:
-            outfile = output.as_posix() if isinstance(output, Path) else output
-            filtered_geoms.to_file(outfile, driver=driver)
+    # Transform bounds if CRS is different
+    raster_srs = osr.SpatialReference()
+    raster_srs.ImportFromWkt(src.GetProjection())
+    geoms_srs = osr.SpatialReference()
+    geoms_srs.ImportFromProj4(geoms_crs.to_proj4())  # Assuming geoms_crs is a pyproj CRS object
 
-        return filtered_geoms
+    if not raster_srs.IsSame(geoms_srs):
+        # Transform coordinates
+        transform = osr.CoordinateTransformation(raster_srs, geoms_srs)
+        transformed_points = [transform.TransformPoint(x, y) for x, y in zip(px, py)]
+        px, py = zip(*[(point[0], point[1]) for point in transformed_points])
+
+    # Create a polygon from raster bounds
+    polygon = Polygon([(x, y) for x, y in zip(px, py)])
+
+    if within:
+        # convert geometries into GeoPandasBaseExtended to use the new cix property
+        filtered_geoms = geometries[geometries.within(polygon)]
+    else:
+        filtered_geoms = geometries[geometries.intersects(polygon)]
+
+    if output:
+        outfile = output.as_posix() if isinstance(output, Path) else output
+        filtered_geoms.to_file(outfile, driver=driver)
+
+    return filtered_geoms
 
 
 def clip(geoms: Union[gpd.GeoDataFrame, Path, str], raster: Union[Path, str],

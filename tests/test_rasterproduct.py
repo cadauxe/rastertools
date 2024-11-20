@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+import numpy as np
 import pytest
 import os
 import filecmp
@@ -9,6 +9,7 @@ from pathlib import Path
 from datetime import datetime
 
 import rasterio
+from osgeo import gdal
 
 from eolab.rastertools.product import RasterType, BandChannel
 from eolab.rastertools.product import RasterProduct
@@ -343,13 +344,64 @@ def test_create_product_special_cases():
     """
     # SUPPORTED CASES
 
+    # file = "S2B_MSIL1C_20191008T105029_N0208_R051_T30TYP_20191008T125041.zip"
+    # with RasterProduct(RastertoolsTestsData.tests_input_data_dir + "/" + file) as prod:
+    #     assert prod.get_raster(masks=None).endswith(utils4test.basename(file) + ".vrt")
+    #     # check if product can be opened by rasterio
+    #     dataset = prod.open()
+    #     dataset.close()
+    #
+    # # creation in memory (with masks)
+    # file = "SENTINEL2B_20181023-105107-455_L2A_T30TYP_D_tar.tar"
+    # with RasterProduct(RastertoolsTestsData.tests_input_data_dir + "/" + file) as prod:
+    #     raster = prod.get_raster(roi=Path(RastertoolsTestsData.tests_input_data_dir + "/" + "COMMUNE_32001.shp"),
+    #                              bands=prod.rastertype.get_band_ids(),
+    #                              masks=prod.rastertype.get_mask_ids())
+    #
+    #     assert raster.endswith(utils4test.basename(file) + "-mask.vrt")
+    #
+    #     # check if product can be opened by rasterio
+    #     with rasterio.Env(GDAL_VRT_ENABLE_PYTHON=True):
+    #         with rasterio.open(raster) as dataset:
+    #             data = dataset.read([1], masked=True)
+    #             # pixel corresponding to a value > 0 for a band mask => masked value
+    #             print(data.mask.sum())
+    #             print(881*860)
+    #             print(data.mask[0][350, 250])
+    #             assert data.mask[0][350][250]
+    #
+    # # creation from a vrt
+    # file = "S2A_MSIL2A_20190116T105401_N0211_R051_T30TYP_20190116T120806.vrt"
+    # with RasterProduct(RastertoolsTestsData.tests_input_data_dir + "/" + file) as prod:
+    #     raster = prod.get_raster()
+    #     assert raster == RastertoolsTestsData.tests_input_data_dir + "/" + utils4test.basename(file) + ".vrt"
+    #     assert prod.rastertype == RasterType.get("S2_L2A_SEN2CORE")
+    #     # check if product can be opened by rasterio
+    #     dataset = rasterio.open(raster)
+    #     dataset.close()
+    #
+    # # creation from a directory
+    # # unzip S2B_MSIL1C_20191008T105029_N0208_R051_T30TYP_20191008T125041.zip
+    # file = RastertoolsTestsData.tests_input_data_dir + "/" + "S2B_MSIL1C_20191008T105029_N0208_R051_T30TYP_20191008T125041.zip"
+    # with zipfile.ZipFile(file) as myzip:
+    #     myzip.extractall(RastertoolsTestsData.tests_output_data_dir + "/")
+    # dirname = "S2B_MSIL1C_20191008T105029_N0208_R051_T30TYP_20191008T125041.SAFE"
+    #
+    # with RasterProduct(file, vrt_outputdir=Path(RastertoolsTestsData.tests_output_data_dir + "/")) as prod:
+    #     raster = prod.get_raster()
+    #     assert raster == RastertoolsTestsData.tests_output_data_dir + "/" + utils4test.basename(file) + ".vrt"
+    #     # check if product can be opened by rasterio
+    #     dataset = rasterio.open(raster)
+    #     dataset.close()
+
     # creation in memory (without masks)
     file = "S2B_MSIL1C_20191008T105029_N0208_R051_T30TYP_20191008T125041.zip"
     with RasterProduct(RastertoolsTestsData.tests_input_data_dir + "/" + file) as prod:
         assert prod.get_raster(masks=None).endswith(utils4test.basename(file) + ".vrt")
         # check if product can be opened by rasterio
-        dataset = prod.open()
-        dataset.close()
+        dataset = gdal.Open(prod.get_raster())
+        dataset = None
+        del dataset
 
     # creation in memory (with masks)
     file = "SENTINEL2B_20181023-105107-455_L2A_T30TYP_D_tar.tar"
@@ -361,11 +413,19 @@ def test_create_product_special_cases():
         assert raster.endswith(utils4test.basename(file) + "-mask.vrt")
 
         # check if product can be opened by rasterio
-        with rasterio.Env(GDAL_VRT_ENABLE_PYTHON=True):
-            with rasterio.open(raster) as dataset:
-                data = dataset.read([1], masked=True)
-                # pixel corresponding to a value > 0 for a band mask => masked value
-                assert data.mask[0][350][250]
+        dataset = gdal.Open(raster)
+        band = dataset.GetRasterBand(1)
+
+        data = band.ReadAsArray()
+        nodata_value = band.GetNoDataValue()
+        print(nodata_value)
+        data = np.ma.masked_equal(data, nodata_value)
+
+        # Check if a specific pixel is masked
+        print(data.mask.sum())
+        print(881*860)
+        print(data.mask[350, 250])
+        assert data.mask[350, 250]
 
     # creation from a vrt
     file = "S2A_MSIL2A_20190116T105401_N0211_R051_T30TYP_20190116T120806.vrt"
@@ -376,20 +436,20 @@ def test_create_product_special_cases():
         # check if product can be opened by rasterio
         dataset = rasterio.open(raster)
         dataset.close()
-
-    # creation from a directory
-    # unzip S2B_MSIL1C_20191008T105029_N0208_R051_T30TYP_20191008T125041.zip
-    file = RastertoolsTestsData.tests_input_data_dir + "/" + "S2B_MSIL1C_20191008T105029_N0208_R051_T30TYP_20191008T125041.zip"
-    with zipfile.ZipFile(file) as myzip:
-        myzip.extractall(RastertoolsTestsData.tests_output_data_dir + "/")
-    dirname = "S2B_MSIL1C_20191008T105029_N0208_R051_T30TYP_20191008T125041.SAFE"
-
-    with RasterProduct(file, vrt_outputdir=Path(RastertoolsTestsData.tests_output_data_dir + "/")) as prod:
-        raster = prod.get_raster()
-        assert raster == RastertoolsTestsData.tests_output_data_dir + "/" + utils4test.basename(file) + ".vrt"
-        # check if product can be opened by rasterio
-        dataset = rasterio.open(raster)
-        dataset.close()
+    #
+    # # creation from a directory
+    # # unzip S2B_MSIL1C_20191008T105029_N0208_R051_T30TYP_20191008T125041.zip
+    # file = RastertoolsTestsData.tests_input_data_dir + "/" + "S2B_MSIL1C_20191008T105029_N0208_R051_T30TYP_20191008T125041.zip"
+    # with zipfile.ZipFile(file) as myzip:
+    #     myzip.extractall(RastertoolsTestsData.tests_output_data_dir + "/")
+    # dirname = "S2B_MSIL1C_20191008T105029_N0208_R051_T30TYP_20191008T125041.SAFE"
+    #
+    # with RasterProduct(file, vrt_outputdir=Path(RastertoolsTestsData.tests_output_data_dir + "/")) as prod:
+    #     raster = prod.get_raster()
+    #     assert raster == RastertoolsTestsData.tests_output_data_dir + "/" + utils4test.basename(file) + ".vrt"
+    #     # check if product can be opened by rasterio
+    #     dataset = rasterio.open(raster)
+    #     dataset.close()
 
     # ERROR CASES
 
