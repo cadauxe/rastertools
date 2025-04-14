@@ -154,7 +154,7 @@ def compute_speed(date0: datetime, date1: datetime,
             profile.update(driver="GTiff",
                            blockxsize=blockysize, blockysize=blockxsize, tiled=True,
                            dtype=dtype, count=len(bands))
-
+            
             with rasterio.open(speed_image, "w", **profile) as dst:
                 # Materialize a list of destination block windows
                 windows = [window for ij, window in dst.block_windows()]

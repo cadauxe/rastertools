@@ -132,7 +132,7 @@ class Hillshade(Rastertool, Windowable):
         if wmin is np.inf:
             # No valid data in input DEM
             raise ValueError(f"No valid data in file: {inputfile}")
-        
+       
         delta = int((wmax - wmin) / self.resolution)
         optimal_radius = abs(int(delta / np.tan(np.radians(self.elevation))))
 

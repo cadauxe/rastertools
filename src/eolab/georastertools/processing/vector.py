@@ -132,8 +132,9 @@ def clip(geoms: Union[gpd.GeoDataFrame, Path, str], raster: Union[Path, str],
         if output:
             outfile = output.as_posix() if isinstance(output, Path) else output
             clipped_geoms.to_file(outfile, driver=driver)
-
+            
     return clipped_geoms
+
 
 
 def reproject(geoms: Union[gpd.GeoDataFrame, Path, str], raster: Union[Path, str],
@@ -318,7 +319,7 @@ def crop(input_image: Union[Path, str], roi: Union[gpd.GeoDataFrame, Path, str],
 
     geometries = reproject(dissolve(roi), pinput)
     geom_bounds = geometries.total_bounds
-
+    
     with rasterio.open(pinput) as raster:
         rst_bounds = raster.bounds
         bounds = (math.floor(max(rst_bounds[0], geom_bounds[0])),
@@ -337,7 +338,6 @@ def crop(input_image: Union[Path, str], roi: Union[gpd.GeoDataFrame, Path, str],
                        xRes=width, yRes=height,
                        format="VRT")
         del ds
-
 
 
 

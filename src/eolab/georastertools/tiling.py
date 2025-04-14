@@ -173,7 +173,7 @@ class Tiling(Rastertool):
                 # Crop and export every tiles
                 for shape, i in zip(grid.geometry, grid.index):
                     _logger.info("Crop and export tile " + str(i) + "...")
-
+                    
                     try:
                         # generate crop image
                         image, transform = rasterio.mask.mask(dataset, [shape],
