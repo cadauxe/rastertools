@@ -8,6 +8,7 @@ __author__ = "Olivier Queyrut"
 __copyright__ = "Copyright 2019, CNES"
 __license__ = "Apache v2.0"
 
+from .utils4test import RastertoolsTestsData
 
 __refdir = utils4test.get_refdir("test_stats/")
 
@@ -16,8 +17,8 @@ EXTRA_STATS = "sum median mad percentile_5 range majority minority unique nodata
 
 
 def test_compute_zonal_default_stats():
-    raster = utils4test.indir + "SENTINEL2A_20180928-105515-685_L2A_T30TYP_D-ndvi.tif"
-    geojson = utils4test.indir + "COMMUNE_32xxx.geojson"
+    raster = RastertoolsTestsData.tests_input_data_dir + "/" + "SENTINEL2A_20180928-105515-685_L2A_T30TYP_D-ndvi.tif"
+    geojson = RastertoolsTestsData.tests_input_data_dir + "/" + "COMMUNE_32xxx.geojson"
     stats_to_compute = DEFAULT_STATS
     categorical = False
     bands = [1]
@@ -49,7 +50,7 @@ def test_compute_zonal_default_stats():
            [{'count': 64186, 'min': -1.0, 'max': 1.0, 'mean': 0.698426, 'std': 0.210732}],
            [{'count': 83063, 'min': -1.0, 'max': 1.0, 'mean': 0.699223, 'std': 0.213408}],
            [{'count': 4038, 'min': -0.206738, 'max': 1.0, 'mean': 0.734667, 'std': 0.230044}],
-           [{'count': 29232, 'min': -0.83908, 'max': 1.0, 'mean': 0.602069, 'std': 0.217282}],
+           [{'count': 29232, 'min': -0.83908, 'max': 1.0, 'mean': 0.60207, 'std': 0.217282}],
            [{'count': 177106, 'min': -1.0, 'max': 1.0, 'mean': 0.548052, 'std': 0.261178}],
            [{'count': 17772, 'min': 0.038081, 'max': 1.0, 'mean': 0.61795, 'std': 0.269253}],
            [{'count': 169829, 'min': -1.0, 'max': 1.0, 'mean': 0.525915, 'std': 0.258398}],
@@ -63,8 +64,8 @@ def test_compute_zonal_default_stats():
 
 
 def test_compute_zonal_extra_stats():
-    raster = utils4test.indir + "SENTINEL2A_20180928-105515-685_L2A_T30TYP_D-ndvi.tif"
-    geojson = utils4test.indir + "COMMUNE_32xxx.geojson"
+    raster = RastertoolsTestsData.tests_input_data_dir + "/" + "SENTINEL2A_20180928-105515-685_L2A_T30TYP_D-ndvi.tif"
+    geojson = RastertoolsTestsData.tests_input_data_dir + "/" + "COMMUNE_32xxx.geojson"
     stats_to_compute = EXTRA_STATS + ["valid"]
     categorical = False
     bands = [1]
@@ -167,8 +168,8 @@ def test_compute_zonal_extra_stats():
 
 
 def test_compute_zonal_categorical():
-    raster = utils4test.indir + "OCS_2017_CESBIO_extract.tif"
-    geojson = utils4test.indir + "COMMUNE_59xxx.geojson"
+    raster = RastertoolsTestsData.tests_input_data_dir + "/" + "OCS_2017_CESBIO_extract.tif"
+    geojson = RastertoolsTestsData.tests_input_data_dir + "/" + "COMMUNE_59xxx.geojson"
     stats_to_compute = ['count']
     categorical = True
     bands = [1]
@@ -205,10 +206,10 @@ def test_compute_zonal_categorical():
 
 
 def test_compute_zonal_stats_per_category():
-    raster = utils4test.indir + "DSM_PHR_Dunkerque.tif"
-    geojson = utils4test.indir + "COMMUNE_59xxx.geojson"
-    catgeojson = utils4test.indir + "OSO_2017_classification_dep59.shp"
-    catlabels = utils4test.indir + "OSO_nomenclature_2017.json"
+    raster = RastertoolsTestsData.tests_input_data_dir + "/" + "DSM_PHR_Dunkerque.tif"
+    geojson = RastertoolsTestsData.tests_input_data_dir + "/" + "COMMUNE_59xxx.geojson"
+    catgeojson = RastertoolsTestsData.tests_input_data_dir + "/" + "OSO_2017_classification_dep59.shp"
+    catlabels = RastertoolsTestsData.tests_input_data_dir + "/" + "OSO_nomenclature_2017.json"
     stats_to_compute = DEFAULT_STATS
     bands = [1]
     geometries = vector.reproject(vector.filter(geojson, raster), raster)
@@ -219,7 +220,7 @@ def test_compute_zonal_stats_per_category():
                                                         stats=stats_to_compute,
                                                         categories=categories,
                                                         category_index="Classe")
-    print(f"{statistics}")
+
     # statistics is a list of list of dict.
     # First list iterates over geometries
     # Second list iterates over bands.
@@ -231,12 +232,12 @@ def test_compute_zonal_stats_per_category():
      for geom_stats in statistics for d in geom_stats for key, val in d.items()]
 
     # ref is the following
-    ref = [[{'11min': 40.407368, '11max': 44.083961, '11mean': 42.293809, '11count': 244, '11std': 0.849256,
+    ref = [[{'11min': 40.407368, '11max': 44.083961, '11mean': 42.293813, '11count': 244, '11std': 0.849256,
              '31min': 40.224247, '31max': 68.915146, '31mean': 46.435981, '31count': 12347, '31std': 4.744863,
              '32min': 38.825829, '32max': 46.798634, '32mean': 42.545211, '32count': 6657, '32std': 1.33232,
              '42min': 38.214043, '42max': 59.93272, '42mean': 43.375167, '42count': 2716, '42std': 1.595453,
-             '43min': 38.214043, '43max': 45.618088, '43mean': 42.273938, '43count': 875, '43std': 1.241663}],
-           [{'11min': 38.475033, '11max': 45.613518, '11mean': 42.386634, '11count': 73437, '11std': 1.090365,
+             '43min': 38.214043, '43max': 45.618088, '43mean': 42.273933, '43count': 875, '43std': 1.241663}],
+           [{'11min': 38.475033, '11max': 45.613518, '11mean': 42.386638, '11count': 73437, '11std': 1.090365,
              '12min': 39.241253, '12max': 43.433277, '12mean': 41.991684, '12count': 17339, '12std': 0.313978,
              '31min': 33.781662, '31max': 60.81406, '31mean': 44.562402, '31count': 12743, '31std': 3.051407,
              '32min': 37.670204, '32max': 64.120644, '32mean': 44.396163, '32count': 18284, '32std': 2.749989,
@@ -258,6 +259,7 @@ def test_compute_zonal_stats_per_category():
                                                         category_index="Classe",
                                                         category_labels=labels)
 
+
     # statistics is a list of list of dict.
     # First list iterates over geometries
     # Second list iterates over bands.
@@ -269,12 +271,12 @@ def test_compute_zonal_stats_per_category():
      for geom_stats in statistics for d in geom_stats for key, val in d.items()]
 
     # ref is the following
-    ref = [[{'cetemin': 40.407368, 'cetemax': 44.083961, 'cetemean': 42.293809, 'cetecount': 244, 'cetestd': 0.849256,
+    ref = [[{'cetemin': 40.407368, 'cetemax': 44.083961, 'cetemean': 42.293813, 'cetecount': 244, 'cetestd': 0.849256,
              'feumin': 40.224247, 'feumax': 68.915146, 'feumean': 46.435981, 'feucount': 12347, 'feustd': 4.744863,
              'conmin': 38.825829, 'conmax': 46.798634, 'conmean': 42.545211, 'concount': 6657, 'constd': 1.33232,
              'udimin': 38.214043, 'udimax': 59.93272, 'udimean': 43.375167, 'udicount': 2716, 'udistd': 1.595453,
-             'zicmin': 38.214043, 'zicmax': 45.618088, 'zicmean': 42.273938, 'ziccount': 875, 'zicstd': 1.241663}],
-           [{'cetemin': 38.475033, 'cetemax': 45.613518, 'cetemean': 42.386634, 'cetecount': 73437, 'cetestd': 1.090365,
+             'zicmin': 38.214043, 'zicmax': 45.618088, 'zicmean': 42.273933, 'ziccount': 875, 'zicstd': 1.241663}],
+           [{'cetemin': 38.475033, 'cetemax': 45.613518, 'cetemean': 42.386638, 'cetecount': 73437, 'cetestd': 1.090365,
              'chivmin': 39.241253, 'chivmax': 43.433277, 'chivmean': 41.991684, 'chivcount': 17339, 'chivstd': 0.313978,
              'feumin': 33.781662, 'feumax': 60.81406, 'feumean': 44.562402, 'feucount': 12743, 'feustd': 3.051407,
              'conmin': 37.670204, 'conmax': 64.120644, 'conmean': 44.396163, 'concount': 18284, 'constd': 2.749989,

@@ -9,13 +9,13 @@ import re
 import datetime
 
 import numpy as np
+import rioxarray
 from scipy.stats import median_abs_deviation
 import pandas as pd
 import geopandas as gpd
 import matplotlib
 import matplotlib.pyplot as plt
 import rasterio
-from rasterio import features
 from tqdm import tqdm
 
 from eolab.rastertools.utils import get_metadata_name
@@ -26,41 +26,122 @@ def compute_zonal_stats(geoms: gpd.GeoDataFrame, image: str,
                         bands: List[int] = [1],
                         stats: List[str] = ["min", "max", "mean", "std"],
                         categorical: bool = False) -> List[List[Dict[str, float]]]:
-    """Compute the statistics of an input image for each feature in the shapefile
+    """
+    Compute zonal statistics for an input raster image over specified geometries.
+
+    This function calculates statistical summaries (e.g., min, max, mean, standard deviation)
+    for each feature in the provided geometries (GeoDataFrame) using the specified raster image.
+    If the raster is categorical, the function can compute counts of unique values.
 
     Args:
-        geoms (GeoDataFrame):
-            Geometries where to compute stats
-        image (str):
-            Filename of the input image to process
-        bands ([int], optional, default=[1]):
-            List of bands to process in the input image
-        stats ([str], optional, default=["min", "max","mean", "std"]):
-            List of stats to computed
-        categorical (bool, optional, default=False):
-            Whether to treat the input raster as categorical
+        geoms (GeoDataFrame): Geometries where to compute stats
+        image (str): Filename of the input image to process
+        bands (list, optional, default=[1]): List of bands to process in the input image
+        stats (list, optional, default=["min", "max", "mean", "std"]): List of stats to computed
+        categorical (bool, optional, default=False): Whether to treat the input raster as categorical
 
     Returns:
-        statistics: a list of list of dictionnaries. First list on ROI, second on bands.
-        Dict associates the stat names and the stat values.
+        statistics: a list of lists of dictionaries. The first list corresponds to the geometries, the second corresponds to the bands.
+        Each dictionary associates the stat names and the stat values.
     """
-    statistics = []
-    nb_geoms = len(geoms)
-    with rasterio.open(image) as src:
-        geom_gen = (geoms.iloc[i].geometry for i in range(nb_geoms))
-        geom_windows = ((geom, features.geometry_window(src, [geom])) for geom in geom_gen)
+    with rasterio.Env(GDAL_VRT_ENABLE_PYTHON=True):
+        # Open the raster image using rioxarray
+        raster = rioxarray.open_rasterio(image, masked=True)
 
+        # Initialize statistics list
         statistics = []
+        # Prepare progress bar
         disable = os.getenv("RASTERTOOLS_NOTQDM", 'False').lower() in ['true', '1']
-        for geom, window in tqdm(geom_windows, total=nb_geoms, disable=disable, desc="zonalstats"):
-            data = src.read(bands, window=window)
-            transform = src.window_transform(window)
 
-            s = _compute_stats((data, transform, [geom], window),
-                               src.nodata, stats, categorical)
-            statistics.append(s)
+        # Iterate through geometries
+        for _, geom in tqdm(geoms.iterrows(), total=len(geoms), disable=disable, desc="zonalstats"):
+            geom = geom.geometry
+            # # Calculate the bounds and clip the raster
+            minx, miny, maxx, maxy = geom.bounds
+            window_raster = raster.sel(
+                x=slice(minx, maxx),
+                y=slice(maxy, miny),  # Inverted y for correct orientation
+            )
+            # Make sure the expanded geometry is in the same CRS as the raster
 
+            # Mask the raster to the geometry
+            clipped = window_raster.rio.clip([geom], geoms.crs, drop=False)
+            clipped_data = clipped.sel(band=bands)
+            # Compute statistics for each band
+            band_stat = []
+            for band_data in clipped_data.values:
+                # Compute the statistics
+                feature_stats = _compute_stats(band_data, clipped_data.rio.nodata, stats, categorical)
+
+                band_stat.append(feature_stats)
+
+            # Append the computed statistics for the current geometry
+            statistics.append(band_stat)
     return statistics
+
+
+def _compute_stats(data, nodata : int, stats: List[str], categorical: bool = False, prefix_stats: str = "") -> Dict[str, float]:
+    """Compute the statistics for a single band (numpy array).
+
+    Args:
+        data: numpy array (masked or not) containing the raster values for the current geometry.
+        stats: List of statistics to compute (e.g., "mean", "min", "max", etc.).
+        categorical: Whether to compute categorical statistics (default False).
+
+    Returns:
+        Dictionary with statistics for the current data array (band).
+    """
+
+    feature_stats = {}
+
+    # List of functions for computing statistics
+    functions = {
+        'min': np.min,
+        'max': np.max,
+        'mean': np.mean,
+        'sum': np.ma.sum,
+        'std': np.std,
+        'median': np.ma.median,
+    }
+
+    # Mask for nodata
+    if nodata is not None and np.isnan(nodata):
+        mask = np.isnan(data)
+    else:
+        mask = (data == nodata) | np.isnan(data)
+
+    # Create a masked array
+    dataset = np.ma.MaskedArray(data, mask=mask)
+    # Calculate the requested statistics
+    for stat in stats:
+        if stat in functions:
+            feature_stats[f'{prefix_stats}{stat}'] = float(functions[stat](dataset))
+
+    # Compute range if required (max - min)
+    if 'range' in stats:
+        feature_stats[f'{prefix_stats}range'] = float(feature_stats.get('max', np.max(dataset)) - feature_stats.get('min', np.min(dataset)))
+
+    # Compute percentiles if requested
+    for pctile in [s for s in stats if s.startswith('percentile_')]:
+        q = float(pctile.replace("percentile_", ''))
+        feature_stats[f'{prefix_stats}{pctile}'] = np.nanpercentile(dataset.compressed(), q)
+    if 'mad' in stats:
+        feature_stats[f'{prefix_stats}mad'] = median_abs_deviation(dataset.compressed().flatten())
+
+    count = dataset.count()
+    # generate the counting stats
+    if "count" in stats:
+        feature_stats[f'{prefix_stats}count'] = count
+    if 'valid' in stats or 'nodata' in stats:
+        all_count = np.count_nonzero(~mask)
+        if 'nodata' in stats:
+            feature_stats[f'{prefix_stats}nodata'] = all_count - count
+        if 'valid' in stats:
+            valid = 1.0 * count / (all_count + 1e-5)
+            feature_stats[f'{prefix_stats}valid'] = valid
+
+    feature_stats.update(_gen_stats_cat(dataset, nodata, stats, categorical, prefix_stats))
+    return feature_stats
 
 
 def compute_zonal_stats_per_category(geoms: gpd.GeoDataFrame, image: str,
@@ -69,98 +150,79 @@ def compute_zonal_stats_per_category(geoms: gpd.GeoDataFrame, image: str,
                                      categories: gpd.GeoDataFrame = None,
                                      category_index: str = 'Classe',
                                      category_labels: Dict[str, str] = None):
-    """Compute the statistics of an input image for each feature in the shapefile
+    """
+    Compute zonal statistics for an input raster image, categorized by specified subregions.
+
+    This function calculates statistical metrics for a raster image over a set of geometries
+    (e.g., polygons) provided in `geoms`. If a set of categories (subregions within each geometry)
+    is provided, statistics are computed separately for each category within each geometry.
 
     Args:
         geoms (GeoDataFrame):
-            Geometries where to compute stats
+            A GeoDataFrame containing the input geometries (e.g., polygons) to compute
+            statistics over.
         image (str):
-            Filename of the input image to process
-        bands ([int], optional, default=[1]):
-            List of bands to process in the input image
-        stats ([str], optional, default=["min", "max", "mean", "std"]):
-            List of stats to computed
-        categories (GeoDataFrame, optional, default=None):
-            The geometries defining the categories.
-        category_index (str, optional, default='Classe'):
-            Name of the column in category file (when it is a vector) that
-            contains the category index
-        category_labels (Dict[str, str], optional, default=None):
-            Dict that associates the category values and category names
+            The file path to the input raster image.
+        bands (List[int], optional):
+            A list of raster band indices to process. Defaults to [1] (the first band).
+        stats (List[str], optional):
+            A list of statistical metrics to compute. Supported values include:
+            - "min": Minimum value within the geometry.
+            - "max": Maximum value within the geometry.
+            - "mean": Mean value within the geometry.
+            - "std": Standard deviation within the geometry.
+            Defaults to ["min", "max", "mean", "std"].
+        categories (GeoDataFrame, optional):
+            A GeoDataFrame containing category geometries that define subregions of the
+            input geometries. Defaults to None.
+        category_index (str, optional):
+            The column in the `categories` GeoDataFrame that identifies category labels
+            for each geometry. Defaults to 'Classe'.
+        category_labels (Dict[str, str], optional):
+            A dictionary mapping category values (from `category_index`) to human-readable
+            labels. If provided, these labels replace category values in the output.
+            Defaults to None.
 
     Returns:
-        statistics ([[Dict[str, float]]]): a list of list of dictionnaries.
-        First list on ROI, second on bands. Dict associates the stat names and the stat values.
-
+        List[List[Dict[str, float]]]:
+            A nested list of dictionaries containing the computed statistics:
+            - Outer list corresponds to each input geometry in `geoms`.
+            - Inner list corresponds to each raster band being processed.
+            - Each dictionary maps statistic names to their respective values.
     """
-    def _get_list_of_polygons(geom):
-        """Get the list of polygons from the geometry"""
-        polygons = None
-        if geom.geom_type == 'MultiPolygon':
-            polygons = list(geom.geoms)
-        elif geom.geom_type == 'Polygon':
-            polygons = list([geom])
-        else:
-            raise IOError('Shape is not a polygon.')
-        return polygons
-
     statistics = []
     # Process geometries one by one
     nb_geoms = len(geoms)
-    nb_bands = len(bands)
 
-    with rasterio.open(image) as src:
-        # each input geometry is split following the categorical geometries.
-        # geom_by_class contains the list of categorical geometries (one list of categorical
-        # geometries per input geometry)
-        geom_gen = (geoms.iloc[[i]] for i in range(nb_geoms))
-        geom_by_class = [filter_dissolve(roi, categories, id=category_index)
-                         for roi in geom_gen]
-
-        # Compute the number of categorical geometries for each input geometry
-        nb_class_roi = [geom_by_class.shape[0] for geom_by_class in geom_by_class]
-
-        # compute stats prefix
-        index_list_roi = [str(el)
-                          for geom_by_class in geom_by_class
-                          for el in geom_by_class[category_index]]
-
-        # change index_list_roi names if a dict is given
-        if category_labels:
-            index_list_roi = [category_labels[el] if el in category_labels else el
-                              for el in index_list_roi]
-
-        # Generator to creates windows associated with each category
-        # geom_window_gen is a generator whose elements are list of geometries per class and per roi
-        geom_windows = [(_get_list_of_polygons(geom),
-                         features.geometry_window(src, _get_list_of_polygons(geom)))
-                        for geom_by_class in geom_by_class
-                        for geom in geom_by_class.geometry]
-
-        substats = []
-        disable = os.getenv("RASTERTOOLS_NOTQDM", 'False').lower() in ['true', '1']
-        for geom_window, stats_prefix in tqdm(zip(geom_windows, index_list_roi),
-                                              disable=disable, desc="zonalstats"):
-            """Read input raster and compute stats"""
-            geom, window = geom_window
-
-            data = src.read(bands, window=window)
-            transform = src.window_transform(window)
-
-            s = _compute_stats((data, transform, geom, window),
-                               src.nodata, stats, False, stats_prefix)
-            substats.append(s)
-
-        offset = 0
-        # re-order output so that all stats of catagorical geometries that correspond
-        # to the same input geometry are concatenated in the same list
+    # Open raster using rioxarray
+    with rioxarray.open_rasterio(image, masked=True) as src:
+        # Loop over geometries (ROIs)
         for i in range(nb_geoms):
-            results_roi = [{}] * nb_bands
-            [results_roi[u].update(substats[v + offset][u])
-             for u in range(nb_bands)
-             for v in range(nb_class_roi[i])]
-            offset = offset + nb_class_roi[i]
-            statistics.append(results_roi)
+            roi_geom = geoms.iloc[[i]]  # Select the current geometry
+
+            # Clip the raster to the current geometry
+            roi_raster = src.rio.clip(roi_geom.geometry)
+
+            roi_statistics = {}
+            category_geoms = filter_dissolve(roi_geom, categories, id=category_index)
+
+            prefix_stats = [str(cat[category_index]) for _, cat in category_geoms.iterrows()]
+
+            # change index_list_roi names if a dict is given
+            if category_labels:
+                prefix_stats = [category_labels[el] if el in category_labels else el
+                                  for el in prefix_stats]
+
+            for prefix, (_, cat_geom) in zip(prefix_stats, category_geoms.iterrows()):
+                # Clip the raster to categorical geometry provided
+                cat_raster = roi_raster.rio.clip([cat_geom.geometry], drop=True)
+
+                # Compute stats for each band
+                for band in bands:
+                    band_data = cat_raster.sel(band=band)
+                    roi_statistics.update(_compute_stats(band_data.values, cat_raster.rio.nodata, stats, prefix_stats = prefix))
+
+            statistics.append([roi_statistics])
 
     return statistics
 
@@ -214,19 +276,63 @@ def extract_zonal_outliers(geoms: gpd.GeoDataFrame, image: str, outliers_image: 
 def plot_stats(chartfile: str, stats_per_date: Dict[datetime.datetime, gpd.GeoDataFrame],
                stats: List[str] = ["min", "max", "mean", "std"],
                index_name: str = 'ID', display: bool = False):
-    """Plot the statistics.
+    """
+    Plot temporal statistics for geometries across multiple dates.
+
+    This function visualizes the evolution of specified statistics (e.g., "min", "mean")
+    over time for different zones defined in the input GeoDataFrames. The output is
+    saved as a chart file, and optionally displayed.
 
     Args:
         chartfile (str):
-            Name of the chartfile to generate
+            Path to the file where the generated chart will be saved.
         stats_per_date (Dict[datetime.datetime, gpd.GeoDataFrame]):
-            A dict that associates a date and the statistics for this date
-        stats ([str], optional, default=["min", "max", "mean", "std"]):
-            List of stats to plot
-        index_name (str, optional, default='ID'):
-            List of bands to process in the input image
-        display (bool, optional, default=False):
-            Whether to display the generated plot
+            A dictionary mapping each date to a GeoDataFrame containing the statistics
+            for that date. Each GeoDataFrame should include the specified `index_name`
+            column and relevant statistics columns.
+        stats (List[str], optional):
+            A list of statistics to plot (e.g., "min", "max", "mean", "std"). Defaults
+            to ["min", "max", "mean", "std"].
+        index_name (str, optional):
+            Name of the column in the GeoDataFrames that uniquely identifies the zones
+            (e.g., region IDs). Defaults to 'ID'.
+        display (bool, optional):
+            If `True`, the generated plot is displayed after saving. Defaults to `False`.
+
+    Raises:
+        ValueError:
+            If the specified `index_name` is not present in the combined GeoDataFrame.
+
+    Notes:
+        - The `stats_per_date` dictionary must be ordered or sortable by date to ensure
+          proper time-series plotting.
+        - Each GeoDataFrame in `stats_per_date` should have columns named in the format
+          `<prefix>.<stat>` (e.g., "temperature.mean").
+
+    Example:
+        ```
+        import geopandas as gpd
+        import datetime
+        from plot_tools import plot_stats
+
+        # Example input
+        stats_per_date = {
+            datetime.datetime(2023, 1, 1): gpd.GeoDataFrame({...}),
+            datetime.datetime(2023, 2, 1): gpd.GeoDataFrame({...}),
+        }
+
+        plot_stats(
+            chartfile="output_chart.png",
+            stats_per_date=stats_per_date,
+            stats=["mean", "std"],
+            index_name="RegionID",
+            display=True
+        )
+        ```
+
+    Output:
+        - Saves a time-series plot of the specified statistics as `chartfile`.
+        - Optionally displays the plot if `display=True`.
     """
 
     # convert dates to datenumber format
@@ -271,127 +377,7 @@ def plot_stats(chartfile: str, stats_per_date: Dict[datetime.datetime, gpd.GeoDa
         plt.show()
 
 
-def _compute_stats(pack, nodata, stats: List[str] = None,
-                   categorical: bool = False, prefix_stats: str = ""):
-    """Compute the statistics.
-
-    Args:
-        pack:
-            A quadruplet containing an array of data (1 per band), the geo transform, the geometry
-            where to compute stats, and the window corresponding to the geometry
-        nodata:
-            The value that corresponds to nodata
-        stats:
-            The list of stats to compute
-        categorical:
-            Whether to consider the input raster as categorical
-        prefix_stats:
-            A prefix to name the stats
-
-    Returns:
-        A list of statistics (one item per band). Statistics are provided as a dict that associates
-        the stats names and the stats values.
-    """
-    datas, transform, geom, window = pack
-
-    # prepare the mask to apply to input dataset: any pixel outside the geom shall be masked
-    all_geoms = [(g, 1) for g in geom]
-    mask = features.rasterize(shapes=all_geoms,
-                              fill=0, out_shape=rasterio.windows.shape(window),
-                              transform=transform,
-                              dtype=rasterio.uint8).astype(bool)
-
-    # list of stats computed, one item per band
-    all_stats = []
-    # for every bands
-    for data in datas:
-        # create the dataset on which stats will be computed
-        if nodata and np.isnan(nodata):
-            dataset = np.ma.MaskedArray(data, mask=(np.isnan(data) | ~mask))
-        else:
-            dataset = np.ma.MaskedArray(data, mask=((data == nodata) | ~mask))
-
-        count = dataset.count()
-        if count == 0:
-            # nothing here, fill with None and move on
-            feature_stats = dict([(stat, None) for stat in stats])
-        else:
-            # generate the statistics
-            feature_stats = _gen_stats(dataset, stats, categorical, prefix_stats)
-            # generate the categorical statistics
-            feature_stats.update(_gen_stats_cat(dataset, stats, categorical, prefix_stats))
-
-        # generate the counting stats
-        if "count" in stats:
-            feature_stats[f'{prefix_stats}count'] = count
-        if 'valid' in stats or 'nodata' in stats:
-            all_count = np.count_nonzero(mask)
-            if 'nodata' in stats:
-                feature_stats[f'{prefix_stats}nodata'] = all_count - count
-            if 'valid' in stats:
-                valid = 1.0 * count / (all_count + 1e-5)
-                feature_stats[f'{prefix_stats}valid'] = valid
-
-        # append the generated stats to the structure that contains the stats for all bands
-        all_stats.append(feature_stats)
-    return all_stats
-
-
-def _gen_stats(dataset, stats: List[str] = None,
-               categorical: bool = False, prefix_stats: str = ""):
-    """Generates the statistics
-
-    Args:
-        dataset:
-            The dataset (numpy MaskedArray) from which stats are computed
-        stats:
-            The stats to compute
-        categorical:
-            Whether to consider the input raster as categorical
-        prefix_stats:
-            A prefix to name the stats
-
-    Returns:
-        The list of statistics for the input dataset as a dict that associates the
-        stats names and the stats values.
-
-    """
-    feature_stats = dict()
-
-    # compute stats
-    functions = {
-        'min': np.ma.min,
-        'max': np.ma.max,
-        'mean': np.ma.mean,
-        'sum': np.ma.sum,
-        'std': np.ma.std,
-        'median': np.ma.median
-    }
-
-    for key, function in functions.items():
-        if key in stats:
-            feature_stats[f'{prefix_stats}{key}'] = float(function(dataset))
-
-    if 'range' in stats:
-        min_key = f'{prefix_stats}min'
-        rmin = feature_stats[min_key] if min_key in feature_stats.keys() else float(dataset.min())
-        max_key = f'{prefix_stats}max'
-        rmax = feature_stats[max_key] if max_key in feature_stats.keys() else float(dataset.max())
-        feature_stats[f'{prefix_stats}range'] = rmax - rmin
-
-    # compute percentiles on the compressed dataset (i.e. the numpy array without the masked values)
-    # because np.ma has no percentile computation capabilities
-    dataset_com = dataset.compressed()
-    for pctile in [s for s in stats if s.startswith('percentile_')]:
-        q = float(pctile.replace("percentile_", ''))
-        feature_stats[f'{prefix_stats}{pctile}'] = np.percentile(dataset_com, q)
-    if 'mad' in stats:
-        feature_stats[f'{prefix_stats}mad'] = median_abs_deviation(dataset_com.flatten())
-
-    return feature_stats
-
-
-def _gen_stats_cat(dataset, stats: List[str] = None,
+def _gen_stats_cat(dataset, nodata, stats: List[str] = None,
                    categorical: bool = False, prefix_stats: str = ""):
     """Generates the statistics
 
@@ -414,10 +400,15 @@ def _gen_stats_cat(dataset, stats: List[str] = None,
     # if categorical stats is requested, extract all unique values from the dataset
     if categorical or 'majority' in stats or 'minority' in stats or 'unique' in stats:
         keys, counts = np.unique(dataset.compressed(), return_counts=True)
+        # Filter out nan
+        if nodata in keys :
+            keys, counts = keys[~nodata], counts[~nodata]
+
         # pixel_count is a dict that associates a unique value with the number
         # of occurrences in the dataset
         pixel_count = dict(zip([k.item() for k in keys],
                                [c.item() for c in counts]))
+        # del pixel_count[nodata]
 
     # initialize the feature_stats dict
     feature_stats = dict(pixel_count) if categorical else {}

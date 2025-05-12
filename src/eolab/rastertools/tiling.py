@@ -11,12 +11,14 @@ from pathlib import Path
 import rasterio
 import rasterio.mask
 import geopandas as gpd
+from rioxarray.exceptions import NoDataInBounds
+import sys
 
 from eolab.rastertools import utils
 from eolab.rastertools import Rastertool, RastertoolConfigurationException
 from eolab.rastertools.processing import vector
 from eolab.rastertools.product import RasterProduct
-
+from eolab.rastertools.utils import xarray_crop
 
 _logger = logging.getLogger(__name__)
 
@@ -119,21 +121,24 @@ class Tiling(Rastertool):
         # Test if id_column is defined when ids are set
         if id_column is not None:
             if id_column not in self._grid.columns:
-                raise RastertoolConfigurationException(
-                    f"Invalid id column named \"{id_column}\": it does not exist in the grid")
+                _logger.exception(RastertoolConfigurationException(
+                    f"Invalid id column named \"{id_column}\": it does not exist in the grid"))
+                sys.exit(2)
             self._grid = self._grid.set_index(id_column)
 
         if ids is not None:
             if id_column is None:
-                raise RastertoolConfigurationException(
-                    "Ids cannot be specified when id_col is not defined")
+                _logger.exception(RastertoolConfigurationException(
+                    "Ids cannot be specified when id_col is not defined"))
+                sys.exit(2)
 
             self._grid = self._grid[self._grid.index.isin(ids)]
             if self._grid.empty:
                 # if no id common between grid and given ids
-                raise RastertoolConfigurationException(
+                _logger.exception(RastertoolConfigurationException(
                     f"No value in the grid column \"{id_column}\" are matching "
-                    f"the given list of ids {str(ids)}")
+                    f"the given list of ids {str(ids)}"))
+                sys.exit(2)
             else:
                 invalid_ids = [i for i in ids if i not in self._grid.index]
                 if len(invalid_ids) > 0:
@@ -157,44 +162,54 @@ class Tiling(Rastertool):
         # STEP 1: Prepare the input image so that it can be processed
         with RasterProduct(inputfile, vrt_outputdir=self.vrt_dir) as product:
 
+            # Load raster as xarray.DataArray
+            raster = product.open_xarray(chunks = (1,400,400))
+            crs = raster.rio.crs
+
+            with rasterio.open(product.get_raster()) as src:
+                out_meta = src.meta
+
+            output_paths = []
+
             # STEP 2: Prepare grid (reproject it to raster's CRS)
-            grid = vector.reproject(self.grid, inputfile)
+            grid = vector.reproject(self.grid, product.get_raster())
 
-            # STEP 3: apply tiling
-            outputs = []
-            with product.open() as dataset:
-                out_meta = dataset.meta
+            for shape, i in zip(grid.geometry, grid.index):
+                _logger.info("Crop and export tile " + str(i) + "...")
 
-                # Crop and export every tiles
-                for shape, i in zip(grid.geometry, grid.index):
-                    _logger.info("Crop and export tile " + str(i) + "...")
-                    try:
-                        # generate crop image
-                        image, transform = rasterio.mask.mask(dataset, [shape],
-                                                              crop=True, all_touched=True)
+                try:
+                    # Generate mask to crop the raster to the geometry
+                    masked_raster = raster.rio.clip([shape], crs, from_disk=True, all_touched=True, drop=False)
 
-                        # output location
-                        output = Path(self.outputdir)
+                    # Replacing the crop = True option
+                    masked_raster = xarray_crop(raster = masked_raster, shape = shape)
 
-                        if self.output_subdir is not None:  # if we need to export in a subdirectory
-                            output = output.joinpath(self.output_subdir.format(i))
-                            if not output.is_dir():
-                                output.mkdir()
+                    # Get the original raster's transform and resolution
+                    original_transform = raster.rio.transform()
+                    # Update the clipped raster with the original resolution
+                    masked_raster = masked_raster.rio.write_transform(original_transform)
 
-                        basename = utils.get_basename(inputfile)
-                        output = output.joinpath(self.output_basename.format(basename, i) + ".tif")
+                    # output location
+                    output = Path(self.outputdir)
 
-                        # export
-                        out_meta.update({"height": image.shape[1],
-                                         "width": image.shape[2],
-                                         "transform": transform})
+                    if self.output_subdir is not None:  # if we need to export in a subdirectory
+                        output = output.joinpath(self.output_subdir.format(i))
+                        if not output.is_dir():
+                            output.mkdir()
 
-                        with rasterio.open(output, 'w', **out_meta) as dst:
-                            dst.write(image)
+                    basename = utils.get_basename(inputfile)
+                    output = output.joinpath(self.output_basename.format(basename, i) + ".tif")
 
-                        outputs.append(output.as_posix())
-                        _logger.info("Tile " + str(i) + " exported to " + str(output))
-                    except ValueError:  # if no overlap
-                        _logger.error("Input shape " + str(i) + " does not overlap raster")
 
-            return outputs
+                    # Save the cropped raster
+                    masked_raster.rio.write_crs(crs, inplace=True)
+                    masked_raster.rio.to_raster(output, meta=out_meta, recalc_transform = False)
+                    output_paths.append(output.as_posix())
+
+                    _logger.info("Tile " + str(i) + " exported to " + str(output_paths))
+
+                except NoDataInBounds:  # if no overlap
+                    _logger.error("Input shape " + str(i) + " does not overlap raster")
+
+            return output_paths
+

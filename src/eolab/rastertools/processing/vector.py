@@ -10,10 +10,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+import rioxarray
 import shapely.geometry
 from osgeo import gdal
 import rasterio
-from rasterio import features, warp, windows
+from rasterio import features, warp
+from shapely.geometry import shape
 
 from eolab.rastertools import utils
 
@@ -70,7 +72,7 @@ def filter(geoms: Union[gpd.GeoDataFrame, Path, str], raster: Union[Path, str],
         l, b, r, t = dataset.bounds
         px, py = ([l, l, r, r], [b, t, t, b])
 
-        if(geoms_crs != dataset.crs):
+        if (geoms_crs != dataset.crs):
             px, py = warp.transform(dataset.crs, geoms_crs, [l, l, r, r], [b, t, t, b])
 
         polygon = shapely.geometry.Polygon([(x, y) for x, y in zip(px, py)])
@@ -120,7 +122,7 @@ def clip(geoms: Union[gpd.GeoDataFrame, Path, str], raster: Union[Path, str],
         l, b, r, t = dataset.bounds
         px, py = ([l, l, r, r], [b, t, t, b])
 
-        if(geoms_crs != dataset.crs):
+        if (geoms_crs != dataset.crs):
             # reproject bounds in geoms crs
             px, py = warp.transform(dataset.crs, geoms_crs, [l, l, r, r], [b, t, t, b])
 
@@ -132,33 +134,29 @@ def clip(geoms: Union[gpd.GeoDataFrame, Path, str], raster: Union[Path, str],
             outfile = output.as_posix() if isinstance(output, Path) else output
             clipped_geoms.to_file(outfile, driver=driver)
 
-        return clipped_geoms
+    return clipped_geoms
 
 
 def reproject(geoms: Union[gpd.GeoDataFrame, Path, str], raster: Union[Path, str],
-              output: Union[Path, str] = None, driver: str = 'GeoJSON') -> gpd.GeoDataFrame:
-    """Reproject the geometries in the raster CRS
+                                       output: Union[Path, str] = None, driver: str = 'GeoJSON') -> gpd.GeoDataFrame:
+    """
+    Reproject the geometries to match the CRS of the raster.
 
     Args:
-        geoms (str or Path or :obj:`gpd.GeoDataFrame`):
-            Filename of the vector data (if str) or GeoDataFrame
-        raster (str or Path):
-            Raster image
-        output (str or Path, optional, default=None):
-            File where to save the reprojected geoms
-            If None, nothing written to disk (only in memory)
-        driver (str, optional, default="GeoJSON"):
-            Driver to write the output
+        geoms (str, Path, or gpd.GeoDataFrame): Vector data (filename or GeoDataFrame).
+        raster (str or Path): Raster file.
+        output (str or Path, optional): File to save reprojected geometries.
+        driver (str, optional): File format for saving the output (default is "GeoJSON").
 
     Returns:
-        :obj:`gpd.GeoDataFrame`: The geometries in the raster CRS
+        gpd.GeoDataFrame: Reprojected geometries in raster CRS.
     """
     geometries = _get_geoms(geoms)
     geoms_crs = _get_geoms_crs(geometries)
 
     file = raster.as_posix() if isinstance(raster, Path) else raster
     with rasterio.open(file) as dataset:
-        if(geoms_crs != dataset.crs):
+        if (geoms_crs != dataset.crs):
             reprojected_geoms = geometries.to_crs(dataset.crs)
         else:
             reprojected_geoms = geometries
@@ -216,22 +214,30 @@ def get_raster_shape(raster: Union[Path, str], output: Union[Path, str] = None,
         :obj:`gpd.GeoDataFrame`: The geometries in the raster CRS
     """
     file = raster.as_posix() if isinstance(raster, Path) else raster
-    with rasterio.open(file) as src:
-        geoms = []
-        for band in range(1, src.count + 1):
-            mask = src.read_masks(band)
-            data = (mask > 0).astype(np.int16)
-            features_gen = features.shapes(data, mask, transform=src.transform)
-            for geom, val in features_gen:
-                if val > 0:
-                    # transform geojson like dict to shapely geometry object
-                    geoms.append(shapely.geometry.shape(geom))
+    src = rioxarray.open_rasterio(file, masked=True)
+
+    # Initialize a list to store the geometries
+    geoms = []
+
+    # Loop through each band in the raster
+    for band in range(1, src.shape[0] + 1):
+        # Read the mask for the current band
+        mask = src.isel(band=band - 1).notnull().astype("uint8")
+
+        # Convert the mask to geometries using rasterio features
+        features_gen = features.shapes(mask.values, mask=mask.values, transform=src.rio.transform())
+
+        # Collect the geometries where the value is greater than 0
+        for geom, val in features_gen:
+            if val > 0:
+                # Transform the geojson-like geometry to a Shapely geometry object
+                geoms.append(shapely.geometry.shape(geom))
 
         # create geo data frame
         df = pd.DataFrame({'geometry': geoms})
         gdf = gpd.GeoDataFrame(df, geometry='geometry')
         # set crs
-        gdf.crs = src.crs
+        gdf.crs = src.rio.crs
         # dissolve all shapes per band in one shape
         gdf['COMMON'] = 0
         raster_shape = gdf.dissolve(by='COMMON', as_index=False)
@@ -294,6 +300,7 @@ def rasterize(geoms: Union[gpd.GeoDataFrame, Path, str], raster: Union[Path, str
         return burned
 
 
+
 def crop(input_image: Union[Path, str], roi: Union[gpd.GeoDataFrame, Path, str],
          output_image: Union[Path, str]):
     """Crops an input image to the roi bounds.
@@ -306,31 +313,31 @@ def crop(input_image: Union[Path, str], roi: Union[gpd.GeoDataFrame, Path, str],
         output_image (pathlib.Path or str):
             Filename of the generated raster image
     """
-
     pinput = input_image.as_posix() if isinstance(input_image, Path) else input_image
     poutput = output_image.as_posix() if isinstance(output_image, Path) else output_image
 
     geometries = reproject(dissolve(roi), pinput)
     geom_bounds = geometries.total_bounds
 
-    with rasterio.open(pinput) as raster:
-        rst_bounds = raster.bounds
-        bounds = (math.floor(max(rst_bounds[0], geom_bounds[0])),
-                  math.floor(max(rst_bounds[1], geom_bounds[1])),
-                  math.ceil(min(rst_bounds[2], geom_bounds[2])),
-                  math.ceil(min(rst_bounds[3], geom_bounds[3])))
-        geotransform = raster.get_transform()
-        width = np.abs(geotransform[1])
-        height = np.abs(geotransform[5])
+    raster = rasterio.open(pinput)
+    rst_bounds = raster.bounds
+    bounds = (math.floor(max(rst_bounds[0], geom_bounds[0])),
+              math.floor(max(rst_bounds[1], geom_bounds[1])),
+              math.ceil(min(rst_bounds[2], geom_bounds[2])),
+              math.ceil(min(rst_bounds[3], geom_bounds[3])))
+    geotransform = raster.get_transform()
+    width = np.abs(geotransform[1])
+    height = np.abs(geotransform[5])
 
-        ds = gdal.Warp(destNameOrDestDS=poutput,
-                       srcDSOrSrcDSTab=pinput,
-                       outputBounds=bounds, targetAlignedPixels=True,
-                       cutlineDSName=roi,
-                       cropToCutline=False,
-                       xRes=width, yRes=height,
-                       format="VRT")
-        del ds
+    ds = gdal.Warp(destNameOrDestDS=poutput,
+                   srcDSOrSrcDSTab=pinput,
+                   outputBounds=bounds, targetAlignedPixels=True,
+                   cutlineDSName=roi,
+                   cropToCutline=False,
+                   xRes=width, yRes=height,
+                   format="VRT")
+    del ds
+    raster.close()
 
 
 def vectorize(category_raster: Union[Path, str], raster: Union[Path, str],
@@ -349,33 +356,45 @@ def vectorize(category_raster: Union[Path, str], raster: Union[Path, str],
     Returns:
         :obj:`gpd.GeoDataFrame`: The geometries generated by the vectorization in the category crs
     """
-    file = raster.as_posix() if isinstance(raster, Path) else raster
+    # Open raster and category raster using rioxarray
+    raster_path = raster.as_posix() if isinstance(raster, Path) else raster
+    category_raster_path = category_raster.as_posix() if isinstance(category_raster, Path) else category_raster
 
-    with rasterio.open(file) as dataset:
-        with rasterio.open(category_raster) as category_dataset:
-            # get the raster bounds in the classif crs
-            l, b, r, t = dataset.bounds
-            if(category_dataset.crs != dataset.crs):
-                # reproject bounds in classif crs
-                l, b, r, t = warp.transform_bounds(dataset.crs, category_dataset.crs,
-                                                   *dataset.bounds)
+    with rioxarray.open_rasterio(raster_path, masked=True) as raster_ds, \
+            rioxarray.open_rasterio(category_raster_path, masked=True) as category_ds:
 
-            # Compute window bounds for crop
-            window = windows.from_bounds(l, b, r, t, category_dataset.transform)
-            # After reading portion of file, rasterio looses georeferencing
-            # Thus, we record the georef and update it to match the cropped portion
-            transform_offset = category_dataset.window_transform(window)
-            # Now, read and vectorize crop
-            extract = category_dataset.read(1, window=window)
-            new_shapes = rasterio.features.shapes(extract, transform=transform_offset)
-            # Store this vectorization in a GeoDataFrame
-            geo_df = gpd.GeoDataFrame.from_records(new_shapes,
-                                                   columns=['geometry', category_column])
-            geo_df['geometry'] = geo_df['geometry'].apply(lambda x: shapely.geometry.shape(x))
-            geo_df[category_column] = geo_df[category_column].apply(lambda x: int(x))
-            geo_df = geo_df.set_geometry("geometry")
-            geo_df.crs = category_dataset.crs
-            return geo_df
+        # Ensure both rasters are in the same CRS
+        if category_ds.rio.crs != raster_ds.rio.crs:
+            category_ds = category_ds.rio.reproject_match(raster_ds)
+
+        # Get the bounds of the raster and crop the category raster to these bounds
+        raster_bounds = raster_ds.rio.bounds()
+        category_ds_cropped = category_ds.rio.clip_box(*raster_bounds)
+
+        # Read the first band for processing
+        category_array = category_ds_cropped[0].data
+
+        # Vectorize the raster categories
+        shapes_generator = rasterio.features.shapes(
+            category_array,
+            transform=category_ds_cropped.rio.transform(),
+        )
+
+        # Convert shapes to a GeoDataFrame
+        geometries = []
+        categories = []
+
+        for geom, value in shapes_generator:
+            if value is not None:  # Exclude nodata or invalid values
+                geometries.append(shape(geom))
+                categories.append(int(value))
+
+        geo_df = gpd.GeoDataFrame(
+            {category_column: categories, "geometry": geometries},
+            crs=category_ds_cropped.rio.crs
+        )
+
+        return geo_df
 
 
 def filter_dissolve(geom: gpd.GeoDataFrame, cat_geom: gpd.GeoDataFrame,

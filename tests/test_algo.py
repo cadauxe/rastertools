@@ -1,17 +1,31 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from datetime import datetime, timedelta
+from pathlib import Path
 
 import numpy as np
 import numpy.ma as ma
+import rasterio
+import pytest
+import xarray as xr
+from rioxarray import rioxarray
 
+from eolab.rastertools import utils
 from eolab.rastertools.processing import algo
+from eolab.rastertools.product import RasterProduct
 
 __author__ = "Olivier Queyrut"
 __copyright__ = "Copyright 2019, CNES"
 __license__ = "Apache v2.0"
 
-
 def test_local_sum():
+    """
+    Test the local sum filter with varying kernel sizes.
+
+    This function verifies that the local sum filter correctly applies to a
+    5x5 matrix with kernel sizes ranging from 1 to 5, comparing each output
+    to expected results.
+    """
     results = [
         np.array(
             [[0, 1, 2, 3, 4],
@@ -65,7 +79,10 @@ def test_local_sum():
 
 
 def test_local_mean():
-
+    """
+    Test the local mean filter with a kernel size of 2.
+    This test verifies the local mean filter by comparing its output on a 5x5 matrix to an expected result matrix.
+    """
     result = np.array(
         [[1, 1.5, 2.5, 3.5, 4],
          [3, 3.5, 4.5, 5.5, 6],
@@ -94,7 +111,8 @@ def test_local_mean():
     )
     mask = np.pad(mask, (radius, radius), mode="edge")
 
-    array = ma.array(band, mask=mask)
+    array = ma.array(band, mask=mask) # masks the band array
+    # ie. removes the first line and first column of band
 
     # output shape is array shape - kernel_width
     output = algo.local_mean(array, kernel_size=kernel_width)
@@ -106,7 +124,13 @@ def test_local_mean():
 
 
 def test_bresenham_line():
+    """
+    Test the Bresenham's line algorithm for angles from 0° to 360° in 15° increments.
 
+    This function verifies that the Bresenham line algorithm generates accurate
+    line coordinates for a given radius across multiple theta values. Each angle
+    is tested against an expected list of coordinates.
+    """
     results = [
         # 0°
         [(1, 0), (2, 0), (3, 0), (4, 0), (5, 0)],

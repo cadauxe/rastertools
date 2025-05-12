@@ -17,12 +17,12 @@ Several options are provided:
 """
 from typing import List, Dict
 import datetime
-import logging
 import logging.config
 from pathlib import Path
 import json
 import numpy as np
 import geopandas as gpd
+import sys
 
 import rasterio
 
@@ -33,12 +33,12 @@ from eolab.rastertools.processing import extract_zonal_outliers, plot_stats
 from eolab.rastertools.processing import vector
 from eolab.rastertools.product import RasterProduct
 
-
 _logger = logging.getLogger(__name__)
 
 
 class Zonalstats(Rastertool):
-    """Raster tool that computes zonal statistics of a raster product.
+    """
+    Raster tool that computes zonal statistics of a raster product.
     """
 
     supported_output_formats = {
@@ -123,7 +123,7 @@ class Zonalstats(Rastertool):
         that contains the statistics for each inputfile's date:
 
         - keys are timestamps
-        - values are the statistics at the corresponding timestam
+        - values are the statistics at the corresponding timestamp
 
         Warning:
             When the timestamp of the input raster cannot be retrieved, the dictionary does not
@@ -163,7 +163,7 @@ class Zonalstats(Rastertool):
 
     @property
     def area(self) -> bool:
-        """Whether to compute stats multiplied by the pixel area"""
+        """Whether to compute the statistics multiplied by the pixel area"""
         return self._area
 
     @property
@@ -275,9 +275,10 @@ class Zonalstats(Rastertool):
         self._output_format = output_format or 'ESRI Shapefile'
         # check if output_format exists
         if self._output_format not in Zonalstats.supported_output_formats:
-            raise RastertoolConfigurationException(
+            _logger.exception(RastertoolConfigurationException(
                 f"Unrecognized output format {output_format}. "
-                f"Possible values are {', '.join(Zonalstats.supported_output_formats)}")
+                f"Possible values are {', '.join(Zonalstats.supported_output_formats)}"))
+            sys.exit(2)
         return self
 
     def with_geometries(self, geometries: str, within: bool = False):
@@ -405,21 +406,24 @@ class Zonalstats(Rastertool):
 
             # open raster to get metadata
             raster = product.get_raster()
-            with rasterio.open(raster) as rst:
-                bound = int(rst.count)
-                indexes = rst.indexes
-                descr = rst.descriptions
 
-                geotransform = rst.get_transform()
-                width = np.abs(geotransform[1])
-                height = np.abs(geotransform[5])
-                area_square_meter = width * height
+            rst = rasterio.open(raster)
+            bound = int(rst.count)
+            indexes = rst.indexes
+            descr = rst.descriptions
+
+            geotransform = rst.get_transform()
+            width = np.abs(geotransform[1])
+            height = np.abs(geotransform[5])
+            area_square_meter = width * height
+            rst.close()
 
             date_str = product.get_date_string('%Y%m%d-%H%M%S')
 
+
             # check band index and handle all bands options (when bands is None)
             if self.bands is None or len(self.bands) == 0:
-                bands = indexes
+                bands = list(indexes)
             else:
                 bands = self.bands
             if min(bands) < 1 or max(bands) > bound:
@@ -439,8 +443,7 @@ class Zonalstats(Rastertool):
                 geometries = vector.get_raster_shape(raster)
 
             # STEP 3: Compute the statistics
-            geom_stats = self.compute_stats(raster, bands, geometries,
-                                            descr, date_str, area_square_meter)
+            geom_stats = self.compute_stats(raster, bands, geometries, descr, date_str, area_square_meter)
 
             self._generated_stats.append(geom_stats)
             if date_str:
@@ -493,7 +496,7 @@ class Zonalstats(Rastertool):
                       geometries: gpd.GeoDataFrame,
                       descr: List[str], date: str,
                       area_square_meter: int) -> List[List[Dict[str, float]]]:
-        """Compute the stats
+        """Compute the statistics of the input data. [Minimum, Maximum, Mean, Standard deviation]
 
         Args:
             raster (str):
@@ -511,8 +514,8 @@ class Zonalstats(Rastertool):
                 Area represented by a pixel
 
         Returns:
-            [[{str: float}]]: a list of list of dictionnaries. Dict associates
-            the stat names and the stat values.
+        list[list[dict]]
+        The dictionnary associates the name of the statistics to its value.
         """
         _logger.info("Compute statistics")
         # Compute zonal statistics
@@ -535,14 +538,14 @@ class Zonalstats(Rastertool):
                 bands=bands,
                 stats=self.stats,
                 categories=class_geom,
-                category_index=self.category_index,
-                category_labels=self.category_labels)
+                category_index=self.category_index)
         else:
             statistics = compute_zonal_stats(
                 geometries, raster,
                 bands=bands,
                 stats=self.stats,
                 categorical=self.categorical)
+
 
         # apply area
         if self.area:
@@ -574,15 +577,18 @@ class Zonalstats(Rastertool):
         Returns:
             GeoDataFrame: The updated geometries with statistics saved in metadata of
             the following form: b{band_number}.{metadata_name} where metadata_name is
-            sucessively the band name, the date and the stats names (min, mean, max, median, std)
+            successively the band name, the date and the statistics names (min, mean, max, median, std)
         """
         prefix = self.prefix or [""] * len(bands)
+
         for i, band in enumerate(bands):
             # add general metadata to geometries
             if descr and descr[i]:
                 geometries[utils.get_metadata_name(band, prefix[i], "name")] = descr[i]
             if date:
                 geometries[utils.get_metadata_name(band, prefix[i], "date")] = date
+
+
 
             # get all statistics names since additional statistics coming from categorical
             # option may have been computed

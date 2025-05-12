@@ -4,20 +4,20 @@
 This module defines a rastertool named Hillshade which computes the hillshade
 of a Digital Height Model corresponding to a given solar position (elevation and azimuth).
 """
-import logging
 import logging.config
+import sys
 from typing import List
 from pathlib import Path
 import numpy as np
 
 import rasterio
-from rasterio.windows import Window
+import rioxarray
 
 from eolab.rastertools import utils
 from eolab.rastertools import Rastertool, Windowable
 from eolab.rastertools.processing import algo
-from eolab.rastertools.processing import RasterProcessing, compute_sliding
-
+from eolab.rastertools.processing import RasterProcessing
+from eolab.rastertools.product import RasterProduct
 
 _logger = logging.getLogger(__name__)
 
@@ -50,18 +50,19 @@ class Hillshade(Rastertool, Windowable):
     """
 
     def __init__(self, elevation: float, azimuth: float, resolution: float, radius: int = None):
-        """ Constructor
+        """ Constructor for the Hillshade class.
 
         Args:
             elevation (float):
-                Elevation of the sun (in degrees), 0 is vertical top
+                Elevation of the sun (in degrees), 0 is vertical top (zenith).
             azimuth (float):
-                Azimuth of the sun (in degrees)
+                Azimuth of the sun (in degrees), measured clockwise from north.
             resolution (float):
-                Resolution of a raster pixel (in meter)
-            radius (int):
-                Max distance from current point (in pixels) to consider
-                for evaluating the hillshade
+                Resolution of a raster pixel (in meters).
+            radius (int, optional):
+                Maximum distance from the current point (in pixels) to consider
+                for evaluating the hillshade. If None, the radius is calculated
+                based on the data range.
         """
         super().__init__()
         self.with_windows()
@@ -73,34 +74,38 @@ class Hillshade(Rastertool, Windowable):
 
     @property
     def elevation(self):
-        """Elevation of the sun (in degrees)"""
+        """Return the elevation of the sun (in degrees)"""
         return self._elevation
 
     @property
     def azimuth(self):
-        """Azimuth of the sun (in degrees)"""
+        """Return the azimuth of the sun (in degrees)"""
         return self._azimuth
 
     @property
     def resolution(self):
-        """Resolution of a raster pixel (in meter)"""
+        """Return the resolution of a raster pixel (in meter)"""
         return self._resolution
 
     @property
     def radius(self):
-        """Max distance from current point (in pixels) to consider
-        for evaluating the max elevation angle"""
+        """Return the maximum distance from current point (in pixels)
+        for evaluating the maximum elevation angle"""
         return self._radius
 
     def process_file(self, inputfile: str) -> List[str]:
-        """Compute Hillshade for the input file
+        """
+        Compute hillshade for the input file.
 
         Args:
             inputfile (str):
-                Input image to process
+                Input image file path to process.
 
         Returns:
-            [str]: A list containing a single element: the generated hillshade image.
+            List[str]: A list containing the file path of the generated hillshade image.
+
+        Raises:
+            ValueError: If the input file contains more than one band or if the radius exceeds constraints.
         """
         _logger.info(f"Processing file {inputfile}")
         outdir = Path(self.outputdir)
@@ -109,19 +114,16 @@ class Hillshade(Rastertool, Windowable):
         # compute the radius from data range
         # radius represents the max distance of buildings that can create a hillshade
         # considering the sun elevation.
-        wmax = None
-        wmin = None
-        with rasterio.open(inputfile) as src:
-            if src.count != 1:
-                raise ValueError("Invalid input file, it must contain a single band.")
-            for i in range(src.height // self.window_size[0]  + 1):
-                for j in range(src.width // self.window_size[1]  + 1):
-                    # Oversized window (out of source bounds) is handled by Window
-                    win = Window(i*self.window_size[0] , j*self.window_size[1] , self.window_size[0] , self.window_size[1])
-                    data = src.read(1, masked=True, window=win)
-                    if data.size and not np.isnan(data).all():
-                        wmax = np.maximum(wmax, np.nanmax(data)) if wmax is not None else np.nanmax(data)
-                        wmin = np.minimum(wmin, np.nanmin(data)) if wmin is not None else np.nanmin(data)
+
+        with rioxarray.open_rasterio(inputfile, chunks=True) as src:
+            if src.shape[0] != 1:
+                _logger.exception(ValueError("Invalid input file, it must contain a single band."))
+                sys.exit(1)
+            data = src[0]
+            if data.size and not np.isnan(data).all():
+                wmax = np.nanmax(data)
+                wmin = np.nanmin(data)
+
         delta = int((wmax - wmin) / self.resolution)
         optimal_radius = abs(int(delta / np.tan(np.radians(self.elevation))))
 
@@ -133,11 +135,6 @@ class Hillshade(Rastertool, Windowable):
                             f"Oversized radius affects computation time and so radius is set to {self.radius}. "
                             "Result may miss some shadow pixels.")
 
-        if self.radius >= min(self.window_size) / 2:
-            raise ValueError(f"The radius (option --radius, value={self.radius}) must be strictly "
-                             "less than half the size of the window (option --window_size, "
-                             f"value={min(self.window_size)})")
-
         # Configure the processing
         hillshade = RasterProcessing("hillshade", algo=algo.hillshade, dtype=np.int8, in_dtype=np.float32,
                                      nbits=1, compress='lzw', per_band_algo=True)
@@ -145,22 +142,37 @@ class Hillshade(Rastertool, Windowable):
             "elevation": None,
             "azimuth": None,
             "resolution": None,
-            "radius": None
+            "radius": None,
+            "pad_mode": None
         })
         # set the configuration of the raster processing
         hillshade_conf = {
             "elevation": self.elevation,
             "azimuth": self.azimuth,
             "resolution": self.resolution,
-            "radius": self.radius
+            "radius": self.radius,
+            "pad_mode": self.pad_mode
         }
         hillshade.configure(hillshade_conf)
 
-        # Run the hillshade processing
-        compute_sliding(
-            inputfile, output_image, hillshade,
-            window_size=self.window_size,
-            window_overlap=self.radius,
-            pad_mode=self.pad_mode)
+        # STEP 1: Prepare the input image so that it can be processed
+        with RasterProduct(inputfile, vrt_outputdir=self.vrt_dir) as product:
+
+            # STEP 2: apply hillshade
+            outdir = Path(self.outputdir)
+            output_image = outdir.joinpath(
+                f"{utils.get_basename(inputfile)}-hillshade.tif")
+
+            with rasterio.Env(GDAL_VRT_ENABLE_PYTHON=True):
+                with product.open_xarray(chunks=True) as src:
+                    # dtype and creation options of output data
+                    dtype = hillshade.dtype or rasterio.float32
+                    src = src.astype(dtype)
+
+                    # Hillshade computing
+                    output = hillshade.compute(src).astype(dtype)
+
+                    #Create the file and compute
+                    output.rio.to_raster(output_image)
 
         return [output_image.as_posix()]

@@ -4,15 +4,17 @@
 This module defines a rastertool named Filtering that can apply different kind
 of filters on raster images.
 """
-import logging
 import logging.config
 from typing import List, Dict
 from pathlib import Path
 
+import rasterio
+from rioxarray import rioxarray
+
 from eolab.rastertools import utils
 from eolab.rastertools import Rastertool, Windowable
 from eolab.rastertools.processing import algo
-from eolab.rastertools.processing import RasterFilter, compute_sliding
+from eolab.rastertools.processing import RasterFilter
 from eolab.rastertools.product import RasterProduct
 
 
@@ -24,10 +26,10 @@ class Filtering(Rastertool, Windowable):
 
     Predefined filters are available:
 
-    - median filter
-    - local sum
-    - local mean
-    - adaptive gaussian filter.
+    - Median filter
+    - Local sum
+    - Local mean
+    - Adaptive gaussian filter.
 
     A filter is applied on a kernel of a configurable size. To set the kernel size, you need
     to call:
@@ -79,7 +81,14 @@ class Filtering(Rastertool, Windowable):
         help="Apply median filter",
         description="Apply a median filter (see scipy median_filter for more information)"
     )
-    """RasterFilter that computes the median of the kernel"""
+    """
+    Applies a Median Filter to the input data using 
+    `scipy.ndimage.median_filter <https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.median_filter.html>`_.
+    The filter computes the median contained in the sliding window determined by kernel_size.
+
+    Returns:
+        Numpy array containing the input data filtered by the median filter
+    """
 
     local_sum = RasterFilter(
         "sum", algo=algo.local_sum
@@ -87,7 +96,12 @@ class Filtering(Rastertool, Windowable):
         help="Apply local sum filter",
         description="Apply a local sum filter using integral image method"
     )
-    """RasterFilter that computes the local sum of the kernel"""
+    """Computes the local sums of the input data.
+    Each element is the sum of the pixels contained in the sliding window determined by kernel_size.
+
+    Returns:
+        Numpy array of the size of input_data containing the computed local sums
+    """
 
     local_mean = RasterFilter(
         "mean", algo=algo.local_mean
@@ -95,7 +109,12 @@ class Filtering(Rastertool, Windowable):
         help="Apply local mean filter",
         description="Apply a local mean filter using integral image method",
     )
-    """RasterFilter that computes the local mean of the kernel"""
+    """Computes the local means of the input data.
+    Each element is the mean of the pixels contained in the sliding window determined by kernel_size.
+
+    Returns:
+        Numpy array of the size of input_data containing the computed local means
+    """
 
     adaptive_gaussian = RasterFilter(
         "adaptive_gaussian", algo=algo.adaptive_gaussian, per_band_algo=True
@@ -110,16 +129,20 @@ class Filtering(Rastertool, Windowable):
             "help": "Standard deviation of the Gaussian distribution (sigma)"
         },
     })
-    """RasterFilter that applies an adaptive gaussian filter to the kernel. It has a special
-    parameter named sigma that defines the standard deviation of the Gaussian distribution."""
+    """RasterFilter that applies an adaptive gaussian filter to the kernel. The parameter sigma defines the standard deviation 
+    of the Gaussian distribution.
+
+    Returns:
+        Numpy array containing the input data filtered by the Gaussian filter.
+    """
 
     @staticmethod
     def get_default_filters():
         """Get the list of predefined raster filters
 
         Returns:
-            [:obj:`eolab.rastertools.processing.RasterFilter`]: list of predefined
-            raster filters.
+            [:obj:`eolab.rastertools.processing.RasterFilter`] List of the predefined
+            raster filters ([Median, Local sum, Local mean, Adaptive gaussian])
         """
         return [
             Filtering.median_filter, Filtering.local_sum,
@@ -139,8 +162,6 @@ class Filtering(Rastertool, Windowable):
                 Set None if all bands shall be processed.
         """
         super().__init__()
-        # initialize default windowing configuration
-        self.with_windows()
         # the raster filter processing
         self._raster_filter = raster_filter
         self._raster_filter.configure({"kernel_size": kernel_size})
@@ -154,7 +175,7 @@ class Filtering(Rastertool, Windowable):
 
     @property
     def raster_filter(self) -> RasterFilter:
-        """Raster filter to apply"""
+        """Name of the filter to apply to the raster"""
         return self._raster_filter
 
     def with_filter_configuration(self, argsdict: Dict):
@@ -180,16 +201,9 @@ class Filtering(Rastertool, Windowable):
                 Input image to process
 
         Returns:
-            [str]: A list containing a single element: the generated filtered image.
+            ([str]) A list of one element containing the path of the generated filtered image.
         """
         _logger.info(f"Processing file {inputfile}")
-
-        overlap = (self.raster_filter.kernel_size + 1) // 2
-        if overlap >= min(self.window_size) / 2:
-            raise ValueError("The kernel size (option --kernel_size, "
-                             f"value={self.raster_filter.kernel_size}) "
-                             "must be strictly less than the window size minus 1 "
-                             f"(option --window_size, value={min(self.window_size)})")
 
         # STEP 1: Prepare the input image so that it can be processed
         with RasterProduct(inputfile, vrt_outputdir=self.vrt_dir) as product:
@@ -199,11 +213,27 @@ class Filtering(Rastertool, Windowable):
             output_image = outdir.joinpath(
                 f"{utils.get_basename(inputfile)}-{self.raster_filter.name}.tif")
 
-            compute_sliding(
-                product.get_raster(), output_image, self.raster_filter,
-                window_size=self.window_size,
-                window_overlap=(self.raster_filter.kernel_size + 1) // 2,
-                pad_mode=self.pad_mode,
-                bands=self.bands)
+            input_image = product.get_raster()
+            rasterprocessing = self.raster_filter
+
+            with rasterio.Env(GDAL_VRT_ENABLE_PYTHON=True):
+                with rioxarray.open_rasterio(input_image, chunks=(1,1000,1000)) as src:
+                    # dtype and creation options of output data
+                    dtype = rasterprocessing.dtype or rasterio.float32
+
+                    # check band index and handle all bands options (when bands is an empty list)
+                    bands = self.bands
+                    if bands is None or len(bands) == 0:
+                        bands = src["band"].values
+                    elif min(bands) < 1 or max(bands) > src.shape[0]:
+                        raise ValueError(f"Invalid bands, all values are not in range [1, {src.shape[0]}]")
+
+                    src = src.isel(band=slice(0, len(bands)))
+                    src = src.astype(dtype)
+
+                    output = rasterprocessing.compute(src).astype(dtype)
+
+                    ##Create the file and compute
+                    output.rio.to_raster(output_image)
 
             return [output_image.as_posix()]
