@@ -29,13 +29,13 @@ if __name__ == "__main__":
                   'kiwisolver==1.4.5',
                   'matplotlib==3.7.3',
                   'packaging==24.1',
-                  'fiona==1.9.3',
+                  'fiona==1.8.21',
                   'sphinx_rtd_theme==3.0.1',
                   'pip==24.2',
                   'sphinx==7.1.2',
-                  'scipy==1.15.3',
+                  'scipy==1.8',
                   'pyscaffold',
-                  'gdal==3.6.0',
+                  'gdal==3.5.0',
                   'tqdm==4.66'
               ],
               entry_points="""
