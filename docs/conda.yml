@@ -4,9 +4,7 @@ channels:
   - defaults
 dependencies:
   - python=3.10
-  - sphinx
-  - sphinx-autodoc-typehints
-  - rasterio
+#  - sphinx
+#  - sphinx-autodoc-typehints
   - libgdal=3.5.2
   - pip
-  - sphinx-rtd-theme
