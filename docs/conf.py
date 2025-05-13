@@ -56,6 +56,8 @@ sys.path.insert(0, os.path.join(__location__, "../src"))
 sys.path.insert(0, os.path.join(__location__, "../src/eolab"))
 sys.path.insert(0, os.path.join(__location__, "../src/eolab/georastertools"))
 
+from eolab import georastertools
+
 print_directory_tree(os.path.join(__location__, '../src'))
 # -- Run sphinx-apidoc -------------------------------------------------------
 # This hack is necessary since RTD does not issue `sphinx-apidoc` before running
