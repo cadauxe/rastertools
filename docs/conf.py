@@ -16,7 +16,10 @@ import shutil
 
 import os
 
+import logging
 
+# Enable detailed logging
+logging.basicConfig(level=logging.DEBUG)
 def print_directory_tree(directory, indent=0):
     """
     Affiche l'arborescence d'un répertoire.
