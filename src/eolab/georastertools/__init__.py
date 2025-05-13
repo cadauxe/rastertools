@@ -5,7 +5,7 @@ from importlib.metadata import version
 
 # Change here if project is renamed and does not equal the package name
 dist_name = "georastertools"
-__version__ = version(dist_name)
+# __version__ = version(dist_name)
 
 from eolab.georastertools.georastertools import RastertoolConfigurationException
 from eolab.georastertools.georastertools import Rastertool, Windowable
