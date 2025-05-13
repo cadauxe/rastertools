@@ -14,6 +14,35 @@ import sys
 import inspect
 import shutil
 
+import os
+
+
+def print_directory_tree(directory, indent=0):
+    """
+    Affiche l'arborescence d'un répertoire.
+
+    Args:
+    - directory (str) : Le chemin du répertoire dont l'arborescence doit être affichée.
+    - indent (int) : Le niveau d'indentation pour les sous-répertoires (utilisé pour l'affichage récursif).
+    """
+    if not os.path.isdir(directory):
+        print(f"{directory} n'est pas un répertoire valide.")
+        return
+
+    # Lister les fichiers et sous-répertoires dans le répertoire
+    items = sorted(os.listdir(directory))
+
+    for item in items:
+        item_path = os.path.join(directory, item)
+
+        # Si l'élément est un répertoire, on affiche son nom et on appelle récursivement la fonction
+        if os.path.isdir(item_path):
+            print(" " * indent + f"[D] {item}")
+            print_directory_tree(item_path, indent + 4)
+        else:
+            # Si c'est un fichier, on affiche son nom
+            print(" " * indent + f"[F] {item}")
+
 # -- Path setup --------------------------------------------------------------
 
 __location__ = os.path.join(
@@ -26,8 +55,8 @@ __location__ = os.path.join(
 sys.path.insert(0, os.path.join(__location__, "../src"))
 sys.path.insert(0, os.path.join(__location__, "../src/eolab"))
 sys.path.insert(0, os.path.join(__location__, "../src/eolab/georastertools"))
-os.system(os.path.join(__location__, '../src/eolab'))
 
+print_directory_tree(os.path.join(__location__, '../src'))
 # -- Run sphinx-apidoc -------------------------------------------------------
 # This hack is necessary since RTD does not issue `sphinx-apidoc` before running
 # `sphinx-build -b html . _build/html`. See Issue:
