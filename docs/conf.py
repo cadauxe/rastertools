@@ -56,7 +56,7 @@ sys.path.insert(0, os.path.join(__location__, "../src"))
 sys.path.insert(0, os.path.join(__location__, "../src/eolab"))
 sys.path.insert(0, os.path.join(__location__, "../src/eolab/georastertools"))
 
-from eolab import georastertools
+# from eolab import georastertools
 
 print_directory_tree(os.path.join(__location__, '../src'))
 # -- Run sphinx-apidoc -------------------------------------------------------
