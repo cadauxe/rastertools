@@ -3,7 +3,7 @@
 """
 CLI definition for the filtering tool
 """
-from eolab.georastertools import Filtering
+from eolab.georastertools.filtering import Filtering
 from eolab.georastertools.cli.utils_cli import apply_process, pad_opt, win_opt, all_opt, band_opt
 import click
 import os
