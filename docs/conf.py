@@ -23,7 +23,7 @@ __location__ = os.path.join(
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.join(__location__, "../src"))
+sys.path.insert(0, os.path.join(__location__, "../src/eolab"))
 
 # -- Run sphinx-apidoc -------------------------------------------------------
 # This hack is necessary since RTD does not issue `sphinx-apidoc` before running
@@ -32,6 +32,13 @@ sys.path.insert(0, os.path.join(__location__, "../src"))
 # DON'T FORGET: Check the box "Install your project inside a virtualenv using
 # setup.py install" in the RTD Advanced Settings.
 # Additionally it helps us to avoid running apidoc manually
+
+print("=== location ===")
+print(__location__)
+print("=== sys.path ===")
+for p in sys.path:
+    print(p)
+print("=================")
 
 try:  # for Sphinx >= 1.7
     from sphinx.ext import apidoc
