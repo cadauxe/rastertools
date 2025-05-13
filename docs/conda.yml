@@ -3,9 +3,10 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.11
+  - python=3.10
   - sphinx
   - sphinx-autodoc-typehints
   - rasterio
   - libgdal=3.5.2
   - pip
+  - sphinx-rtd-theme
