@@ -64,17 +64,6 @@ Contents
    usage
    rasterproduct
 
-**Development**
-
-* :doc:`private_api`
-
-.. toctree::
-   :maxdepth: 1
-   :hidden:
-   :caption: Development
-
-   private_api
-
 **About**
 
 * :doc:`license`
