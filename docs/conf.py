@@ -23,9 +23,7 @@ __location__ = os.path.join(
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-
-sys.path.insert(0, os.path.join(__location__, "../src/eolab"))
-# sys.path.insert(0, os.path.abspath('../../rastertools/src/eolab'))
+sys.path.insert(0, os.path.join(__location__, "../src"))
 
 # -- Run sphinx-apidoc -------------------------------------------------------
 # This hack is necessary since RTD does not issue `sphinx-apidoc` before running
@@ -41,12 +39,7 @@ except ImportError:
     from sphinx import apidoc
 
 output_dir = os.path.join(__location__, "api")
-module_dir = os.path.join(__location__, "../src/eolab/georastertools")
-
-print("=== PYTHON sys.path during Sphinx build ===")
-for p in sys.path:
-    print(p)
-print("=== END sys.path ===")
+module_dir = os.path.join(__location__, "../src/eolab")
 
 try:
     shutil.rmtree(output_dir)
@@ -56,7 +49,7 @@ except FileNotFoundError:
 try:
     import sphinx
 
-    cmd_line = f"sphinx-apidoc -f -o {output_dir} {module_dir}"
+    cmd_line = f"sphinx-apidoc --implicit-namespaces -f -o {output_dir} {module_dir}"
 
     args = cmd_line.split(" ")
     if tuple(sphinx.__version__.split(".")) >= ("1", "7"):
@@ -102,7 +95,7 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u'georastertools'
+project = u'rastertools'
 copyright = u'2021, CNES'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -174,7 +167,7 @@ html_theme_options = {
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
 try:
-    from eolab.georastertools import __version__ as version
+    from eolab.rastertools import __version__ as version
 except ImportError:
     pass
 else:
@@ -239,7 +232,7 @@ html_static_path = ["_static"]
 # html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'georastertools-doc'
+htmlhelp_basename = 'rastertools-doc'
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -256,7 +249,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-    ('index', 'user_guide.tex', u'georastertools Documentation',
+    ('index', 'user_guide.tex', u'rastertools Documentation',
      u'Olivier Queyrut', 'manual'),
 ]
 

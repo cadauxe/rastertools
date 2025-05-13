@@ -33,7 +33,7 @@ if __name__ == "__main__":
                   'sphinx_rtd_theme==3.0.1',
                   'pip==24.2',
                   'sphinx==7.1.2',
-                  'scipy==1.8',
+                  'scipy==1.9.0rc1',
                   'pyscaffold',
                   'gdal==3.5.0',
                   'tqdm==4.66'
@@ -42,7 +42,7 @@ if __name__ == "__main__":
                 [rasterio.rio_plugins]
                 georastertools=eolab.georastertools.main:georastertools
                 """,
-              python_requires='==3.8.13',
+              python_requires='>=3.8.13',
               use_scm_version={"version_scheme": "no-guess-dev"})
     except:  # noqa
         print(
