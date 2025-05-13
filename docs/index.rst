@@ -60,7 +60,6 @@ Contents
    :hidden:
    :caption: Usage
 
-   cli
    usage
    rasterproduct
 
