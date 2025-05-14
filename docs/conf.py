@@ -14,6 +14,38 @@ import sys
 import inspect
 import shutil
 
+import os
+
+import logging
+
+# Enable detailed logging
+logging.basicConfig(level=logging.DEBUG)
+def print_directory_tree(directory, indent=0):
+    """
+    Affiche l'arborescence d'un répertoire.
+
+    Args:
+    - directory (str) : Le chemin du répertoire dont l'arborescence doit être affichée.
+    - indent (int) : Le niveau d'indentation pour les sous-répertoires (utilisé pour l'affichage récursif).
+    """
+    if not os.path.isdir(directory):
+        print(f"{directory} n'est pas un répertoire valide.")
+        return
+
+    # Lister les fichiers et sous-répertoires dans le répertoire
+    items = sorted(os.listdir(directory))
+
+    for item in items:
+        item_path = os.path.join(directory, item)
+
+        # Si l'élément est un répertoire, on affiche son nom et on appelle récursivement la fonction
+        if os.path.isdir(item_path):
+            print(" " * indent + f"[D] {item}")
+            print_directory_tree(item_path, indent + 4)
+        else:
+            # Si c'est un fichier, on affiche son nom
+            print(" " * indent + f"[F] {item}")
+
 # -- Path setup --------------------------------------------------------------
 
 __location__ = os.path.join(
@@ -24,7 +56,12 @@ __location__ = os.path.join(
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.join(__location__, "../src"))
+sys.path.insert(0, os.path.join(__location__, "../src/eolab"))
+sys.path.insert(0, os.path.join(__location__, "../src/eolab/georastertools"))
 
+# from eolab import georastertools
+
+print_directory_tree(os.path.join(__location__, '../src'))
 # -- Run sphinx-apidoc -------------------------------------------------------
 # This hack is necessary since RTD does not issue `sphinx-apidoc` before running
 # `sphinx-build -b html . _build/html`. See Issue:
@@ -32,6 +69,13 @@ sys.path.insert(0, os.path.join(__location__, "../src"))
 # DON'T FORGET: Check the box "Install your project inside a virtualenv using
 # setup.py install" in the RTD Advanced Settings.
 # Additionally it helps us to avoid running apidoc manually
+
+print("=== location ===")
+print(__location__)
+print("=== sys.path ===")
+for p in sys.path:
+    print(p)
+print("=================")
 
 try:  # for Sphinx >= 1.7
     from sphinx.ext import apidoc
@@ -41,24 +85,24 @@ except ImportError:
 output_dir = os.path.join(__location__, "api")
 module_dir = os.path.join(__location__, "../src/eolab")
 
-try:
-    shutil.rmtree(output_dir)
-except FileNotFoundError:
-    pass
+# try:
+#     shutil.rmtree(output_dir)
+# except FileNotFoundError:
+#     pass
 
-try:
-    import sphinx
-
-    cmd_line = f"sphinx-apidoc --implicit-namespaces -f -o {output_dir} {module_dir}"
-
-    args = cmd_line.split(" ")
-    if tuple(sphinx.__version__.split(".")) >= ("1", "7"):
-        # This is a rudimentary parse_version to avoid external dependencies
-        args = args[1:]
-
-    apidoc.main(args)
-except Exception as e:
-    print("Running `sphinx-apidoc` failed!\n{}".format(e))
+# try:
+#     import sphinx
+#
+#     cmd_line = f"sphinx-apidoc --implicit-namespaces -f -o {output_dir} {module_dir}"
+#
+#     args = cmd_line.split(" ")
+#     if tuple(sphinx.__version__.split(".")) >= ("1", "7"):
+#         # This is a rudimentary parse_version to avoid external dependencies
+#         args = args[1:]
+#
+#     apidoc.main(args)
+# except Exception as e:
+#     print("Running `sphinx-apidoc` failed!\n{}".format(e))
 
 # -- General configuration ---------------------------------------------------
 
@@ -83,7 +127,7 @@ extensions = [
 # autosummary_generate = True
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ["_templates"]
+# templates_path = ["_templates"]
 
 # The suffix of source filenames.
 source_suffix = ".rst"
@@ -95,7 +139,7 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u'rastertools'
+project = u'georastertools'
 copyright = u'2021, CNES'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -167,7 +211,7 @@ html_theme_options = {
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
 try:
-    from eolab.rastertools import __version__ as version
+    from eolab.georastertools import __version__ as version
 except ImportError:
     pass
 else:
